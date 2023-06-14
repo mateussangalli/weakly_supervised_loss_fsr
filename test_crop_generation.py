@@ -1,8 +1,13 @@
+import os
 import matplotlib.pyplot as plt
 from utils.data_loading import read_dataset
 from utils.data_generation import crop_generator
 
-data = read_dataset('~/weak_supervision_data', 'val')
+DATA_ROOT = '~/weak_supervision_data'
+
+train_images = os.listdir(os.path.join(DATA_ROOT, "train", "images"))
+train_images = [train_images[3], train_images[4], train_images[5]]
+data = read_dataset(DATA_ROOT, 'train', train_images)
 
 gen = crop_generator(data, 128, 3, (0.5, 2.))
 

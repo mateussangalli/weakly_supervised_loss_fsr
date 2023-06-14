@@ -71,12 +71,10 @@ class PRPDirectionalPenalty(Loss):
                  distance,
                  spread,
                  iterations,
-                 weight,
                  sc_class=0,
                  le_class=2,
                  bg_class=1,
                  **kwargs):
-        self.weight = weight
         self.distance = distance
         self.spread = spread
         self.iterations = iterations
@@ -112,7 +110,6 @@ class PRPDirectionalPenalty(Loss):
 
     def get_config(self):
         config = super().get_config()
-        config['weight'] = self.weight
         config['distance'] = self.distance
         config['spread'] = self.spread
         config['iterations'] = self.iterations

@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from keras.layers import Layer
+from keras.losses import Loss
 from keras import backend
 from keras.utils import control_flow_util
 
@@ -65,7 +66,7 @@ class Below(DirectionalRelation):
         super().__init__(distance, spread, iterations, (1, 0))
 
 
-class PRPDirectionalPenalty(Layer):
+class PRPDirectionalPenalty(Loss):
     def __init__(self,
                  distance,
                  spread,
@@ -75,7 +76,6 @@ class PRPDirectionalPenalty(Layer):
                  le_class=2,
                  bg_class=1,
                  **kwargs):
-        super().__init__(**kwargs)
         self.weight = weight
         self.distance = distance
         self.spread = spread
@@ -107,19 +107,8 @@ class PRPDirectionalPenalty(Layer):
 
         return penalty
 
-    def __call__(self, inputs, training=None):
-        if training is None:
-            training = backend.learning_phase()
-
-        def apply_loss():
-            self.add_loss(self.weight * self.regularization_term(inputs))
-            return inputs
-
-        output = control_flow_util.smart_cond(
-            training,
-            apply_loss,
-            lambda: tf.identity(inputs))
-        return output
+    def __call__(self, pred):
+        return self.regularization_term(pred)
 
     def get_config(self):
         config = super().get_config()

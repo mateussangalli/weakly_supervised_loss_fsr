@@ -93,13 +93,13 @@ loss_fn, loss_callback = combined_loss(CategoricalCrossentropy(from_logits=True)
 
 
 
-# TODO: linear combination of directional loss and cross-entropy
 model.compile(
     optimizer=Adam(LEARNING_RATE),
     loss=loss_fn,
     metrics=[
         OneHotMeanIoU(3),
         CategoricalCrossentropy(from_logits=True),
+        directional_loss_metric
     ],
 )
 

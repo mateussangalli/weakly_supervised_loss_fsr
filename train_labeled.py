@@ -11,6 +11,7 @@ from utils.data_loading import read_dataset
 from utils.directional_relations import PRPDirectionalPenalty
 from utils.jaccard_loss import OneHotMeanIoU
 from utils.unet import UNetBuilder
+from utils.combined_loss import combined_loss
 
 DATA_ROOT = "../prp_loreal_data"
 CROP_SIZE = 192
@@ -24,6 +25,9 @@ LEARNING_RATE = 5e-5
 FILTERS_START = 8
 DEPTH = 4
 BN_MOMENTUM = 0.85
+
+MAX_WEIGHT = 1.
+INCREASE_EPOCHS = 50
 
 
 # load data
@@ -82,10 +86,17 @@ directional_loss = PRPDirectionalPenalty(3, 2, 5)
 def directional_loss_metric(y, y_pred, **kwargs):
     return directional_loss(y_pred)
 
+loss_fn, loss_callback = combined_loss(CategoricalCrossentropy(from_logits=True),
+                                       PRPDirectionalPenalty(3, 2, 5),
+                                       INCREASE_EPOCHS,
+                                       MAX_WEIGHT)
+
+
+
 # TODO: linear combination of directional loss and cross-entropy
 model.compile(
     optimizer=Adam(LEARNING_RATE),
-    loss=CategoricalCrossentropy(from_logits=True),
+    loss=loss_fn,
     metrics=[
         OneHotMeanIoU(3),
         CategoricalCrossentropy(from_logits=True),
@@ -98,4 +109,5 @@ model.fit(
     validation_data=ds_val,
     validation_steps=len(data_val),
     epochs=EPOCHS,
+    callbacks=[loss_callback]
 )

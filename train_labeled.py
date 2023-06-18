@@ -35,8 +35,8 @@ INCREASE_EPOCHS = 50
 train_images = os.listdir(os.path.join(DATA_ROOT, "train", "images"))
 train_images = [train_images[3], train_images[4], train_images[5]]
 
-data_train = read_dataset(DATA_ROOT, "train", True, train_images)
-data_val = read_dataset(DATA_ROOT, "val", True)
+data_train = read_dataset(DATA_ROOT, "train", train_images)
+data_val = read_dataset(DATA_ROOT, "val")
 
 gen_train = crop_generator(data_train, CROP_SIZE, CROPS_PER_IMAGE, SCALE_RANGE)
 
@@ -50,15 +50,16 @@ def gen_val():
 samples_per_epoch = len(data_train) * CROPS_PER_IMAGE
 
 ds_train = tf.data.Dataset.from_generator(
-    lambda: gen_train, output_types=(tf.float32, tf.int32)
+    lambda: gen_train, output_types=(tf.float32, tf.int32),
+    output_shapes=((None, None, 3), (None, None))
 )
 ds_train = ds_train.shuffle(samples_per_epoch)
 ds_train = ds_train.map(
-    lambda im, gt: resize_inputs(im, gt, (CROP_SIZE, CROP_SIZE)),
+    lambda im, gt: resize_inputs(im, gt, CROP_SIZE),
     num_parallel_calls=tf.data.AUTOTUNE,
 )
 ds_train = ds_train.map(
-    lambda im, gt: (im, tf.one_hot(gt)), num_parallel_calls=tf.data.AUTOTUNE
+    lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
 )
 ds_train = ds_train.batch(BATCH_SIZE)
 ds_train = ds_train.prefetch(tf.data.AUTOTUNE)
@@ -105,7 +106,7 @@ model.compile(
 
 model.fit(
     ds_train,
-    samples_per_epoch=samples_per_epoch,
+    steps_per_epoch=samples_per_epoch,
     validation_data=ds_val,
     validation_steps=len(data_val),
     epochs=EPOCHS,

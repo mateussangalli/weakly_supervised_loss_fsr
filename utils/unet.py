@@ -9,9 +9,6 @@ from keras.layers import (Activation, Add, BatchNormalization, Concatenate,
                           Multiply, UpSampling2D)
 from keras.models import Model
 
-from dlTools.contrast_invariant_layers import (
-    MaxNormalizedConv2D, MaxNormalizedGaussianDerivatives)
-
 
 class UNetBuilder:
     def __init__(self,
@@ -25,9 +22,7 @@ class UNetBuilder:
                  normalize_all=False,
                  activation='leaky_relu',
                  last_layer_activation='softmax',
-                 drop_rate=0,
-                 first_layer_type='',
-                 first_layer_size=7):
+                 drop_rate=0):
         self.input_shape = input_shape
         self.filters = [filters_start * 2 ** i for i in range(depth + 1)]
         self.depth = depth
@@ -44,8 +39,6 @@ class UNetBuilder:
         self.kernel_size = kernel_size
         self.drop_rate = drop_rate
         self.output_channels = output_channels
-        self.first_layer_type = first_layer_type
-        self.first_layer_size = first_layer_size
 
     def get_normalization(self, inputs):
         if self.normalization == 'batch':
@@ -84,11 +77,6 @@ class UNetBuilder:
     def build(self):
         inputs = Input(self.input_shape)
         feature_maps = inputs
-        if self.first_layer_type == 'max_normalized_conv2d':
-            feature_maps = MaxNormalizedConv2D(self.filters[0], self.first_layer_size)(feature_maps)
-        if self.first_layer_type == 'max_normalized_gaussian_derivatives':
-            sigma = float(self.first_layer_size) / 4
-            feature_maps = MaxNormalizedGaussianDerivatives(sigma, self.first_layer_size, 2)(feature_maps)
         feature_maps = self.conv_block(feature_maps, self.filters[0])
 
         pool = [feature_maps]

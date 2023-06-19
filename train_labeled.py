@@ -43,6 +43,9 @@ parser.add_argument("--bn_momentum", type=float, default=0.85)
 parser.add_argument("--max_weight", type=float, default=1.0)
 parser.add_argument("--increase_epochs", type=int, default=50)
 
+# verbose
+parser.add_argument("--verbose", type=int, default=2)
+
 args = parser.parse_args()
 
 if args.min_scale < 0.0:
@@ -155,6 +158,7 @@ model.fit(
     epochs=args.epochs,
     callbacks=[loss_callback,
                CSVLogger(os.path.join(run_dir, 'training_history.csv'))],
+    verbose=args.verbose
 )
 
 model.save(os.path.join(run_dir, 'saved_model'))

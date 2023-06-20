@@ -1,17 +1,17 @@
 import argparse
 import os
 
-import numpy as np
-from keras.models import load_model
-from keras.losses import CategoricalCrossentropy
 import keras
+import numpy as np
+from keras.losses import CategoricalCrossentropy
+from keras.models import load_model
 from skimage.io import imsave
 
-from utils.data_loading import read_dataset
-from utils.utils import crop_to_multiple_of
-from utils.jaccard_loss import OneHotMeanIoU
 from utils.combined_loss import CombinedLoss
+from utils.data_loading import read_dataset
 from utils.directional_relations import PRPDirectionalPenalty
+from utils.jaccard_loss import OneHotMeanIoU
+from utils.utils import crop_to_multiple_of
 
 parser = argparse.ArgumentParser()
 # data dir arguments
@@ -47,11 +47,12 @@ directional_loss = PRPDirectionalPenalty(3, 2, 5)
 def directional_loss_metric(y, y_pred, **kwargs):
     return directional_loss(y_pred)
 
+
 crossentropy = CategoricalCrossentropy(from_logits=False)
+
 
 def crossentropy_metric(y_true, y_pred, **kwargs):
     return crossentropy(y_true, y_pred)
-
 
 
 loss_fn = CombinedLoss(

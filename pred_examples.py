@@ -72,7 +72,10 @@ model = load_model(os.path.join(run_dir, 'saved_model'),
                    compile=False)
 
 pred_dir = os.path.join(run_dir, 'predictions')
-os.mkdirs(pred_dir)
+os.makedirs(pred_dir, exist_ok=True)
 for i, (im, _) in enumerate(data_val):
     im = im.astype(np.float32) / 255.0
-    imsave(os.path.join(pred_dir, f'pred{i}.png'), im)
+    pred = model(im[np.newaxis, ...])
+    pred = np.array(pred)[0, ...]
+    pred = (pred * 255.).astype(np.uint8)
+    imsave(os.path.join(pred_dir, f'pred{i}.png'), pred)

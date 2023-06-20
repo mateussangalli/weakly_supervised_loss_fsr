@@ -1,9 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from keras.layers import Layer
 from keras.losses import Loss
-from keras import backend
-from keras.utils import control_flow_util
 
 EPS = 1e-5
 

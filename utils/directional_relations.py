@@ -113,6 +113,9 @@ class PRPDirectionalPenalty(Loss):
         config['distance'] = self.distance
         config['spread'] = self.spread
         config['iterations'] = self.iterations
+        config['sc_class'] = self.sc_class
+        config['le_class'] = self.le_class
+        config['bg_class'] = self.bg_class
 
 
 if __name__ == '__main__':

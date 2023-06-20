@@ -59,7 +59,7 @@ run_dir = os.path.join(args.runs_dir, run_name)
 
 # load data
 train_images = os.listdir(os.path.join(args.data_root, "train", "images"))
-train_images = [train_images[3], train_images[4], train_images[5]]
+train_images = [train_images[3], train_images[4], train_images[5], train_images[34], train_images[64]]
 
 data_train = read_dataset(args.data_root, "train", train_images)
 data_val = read_dataset(args.data_root, "val")

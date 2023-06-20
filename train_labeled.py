@@ -9,7 +9,7 @@ from keras.losses import CategoricalCrossentropy
 from keras.optimizers import Adam
 from keras.callbacks import CSVLogger
 
-from utils.combined_loss import combined_loss
+from utils.combined_loss import CombinedLoss
 from utils.data_augmentation import resize_inputs
 from utils.data_generation import crop_generator
 from utils.data_loading import read_dataset
@@ -132,7 +132,7 @@ def directional_loss_metric(y, y_pred, **kwargs):
     return directional_loss(y_pred)
 
 
-loss_fn, loss_callback = combined_loss(
+loss_fn = CombinedLoss(
     CategoricalCrossentropy(from_logits=False),
     PRPDirectionalPenalty(3, 2, 5),
     args.increase_epochs,
@@ -156,7 +156,7 @@ model.fit(
     validation_data=ds_val,
     validation_steps=len(data_val),
     epochs=args.epochs,
-    callbacks=[loss_callback,
+    callbacks=[loss_fn.callback,
                CSVLogger(os.path.join(run_dir, 'training_history.csv'))],
     verbose=args.verbose
 )

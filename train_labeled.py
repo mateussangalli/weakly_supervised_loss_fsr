@@ -53,7 +53,7 @@ if args.min_scale < 0.0:
 else:
     scale_range = (args.min_scale, args.max_scale)
 
-weight_str = f'{args.max_weight:.2f}'.replace('.', 'p')
+weight_str = f'{args.max_weight:.4f}'.replace('.', 'p')
 run_name = f'weight{weight_str}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
 run_dir = os.path.join(args.runs_dir, run_name)
 

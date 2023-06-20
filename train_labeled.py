@@ -135,7 +135,7 @@ def directional_loss_metric(y, y_pred, **kwargs):
 crossentropy = CategoricalCrossentropy(from_logits=False)
 
 def crossentropy_metric(y_true, y_pred, **kwargs):
-    crossentropy(y_true, y_pred)
+    return crossentropy(y_true, y_pred)
 
 
 loss_fn = CombinedLoss(

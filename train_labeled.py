@@ -25,7 +25,7 @@ parser.add_argument("--runs_dir", type=str, default="labeled_runs")
 
 # training arguments
 parser.add_argument("--batch_size", type=int, default=16)
-parser.add_argument("--epochs", type=int, default=100)
+parser.add_argument("--epochs", type=int, default=300)
 parser.add_argument("--starting_lr", type=float, default=1e-5)
 
 # crop generator arguments
@@ -132,6 +132,12 @@ def directional_loss_metric(y, y_pred, **kwargs):
     return directional_loss(y_pred)
 
 
+crossentropy = CategoricalCrossentropy(from_logits=False)
+
+def crossentropy_metric(y_true, y_pred, **kwargs):
+    crossentropy(y_true, y_pred)
+
+
 loss_fn = CombinedLoss(
     CategoricalCrossentropy(from_logits=False),
     PRPDirectionalPenalty(3, 2, 5),
@@ -145,7 +151,7 @@ model.compile(
     loss=loss_fn,
     metrics=[
         OneHotMeanIoU(3),
-        CategoricalCrossentropy(from_logits=False),
+        crossentropy_metric,
         directional_loss_metric,
     ],
 )

@@ -47,6 +47,12 @@ directional_loss = PRPDirectionalPenalty(3, 2, 5)
 def directional_loss_metric(y, y_pred, **kwargs):
     return directional_loss(y_pred)
 
+crossentropy = CategoricalCrossentropy(from_logits=False)
+
+def crossentropy_metric(y_true, y_pred, **kwargs):
+    crossentropy(y_true, y_pred)
+
+
 
 loss_fn = CombinedLoss(
     CategoricalCrossentropy(from_logits=False),
@@ -58,7 +64,7 @@ loss_fn = CombinedLoss(
 # create run dir
 custom_objects = {'OneHotMeanIoU': OneHotMeanIoU(3),
                   'directional_loss_metric': directional_loss_metric,
-                  'PRPDirectionalPenalty': PRPDirectionalPenalty(3, 2, 5),
+                  'crossentropy_metric': crossentropy_metric,
                   'CombinedLoss': loss_fn}
 model = load_model(os.path.join(run_dir, 'saved_model'),
                    custom_objects=custom_objects,

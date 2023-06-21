@@ -74,6 +74,6 @@ def read_dataset_pseudo(data_root, subset, labels_dir, image_list=None):
     dataset = list()
     for fname in filenames:
         image = imread(os.path.join(data_dir, "images", fname))
-        label = read_label(os.path.join(labels_dir, fname))
+        label = read_label(os.path.join(labels_dir, "labels", fname))
         dataset.append((image, label))
     return dataset

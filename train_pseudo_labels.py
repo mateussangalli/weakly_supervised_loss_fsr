@@ -34,8 +34,9 @@ parser.add_argument("--val_freq", type=int, default=1)
 
 # crop generator arguments
 parser.add_argument("--crop_size", type=int, default=192)
-# WARN: please choose a number of crops_per_image_pseudo is a
-#   multiple of the number of labeled train data (currently 5)
+# WARN: please choose a number of crops_per_image_pseudo such that
+#  num_images_pseudo * crops_per_image_pseudo * batch_size_labeled is a multiple of
+#  num_images_labeled * batch_size_pseudo
 parser.add_argument("--crops_per_image_pseudo", type=int, default=5)
 parser.add_argument("--min_scale", type=float, default=-1.0)
 parser.add_argument("--max_scale", type=float, default=1.3)
@@ -47,7 +48,7 @@ parser.add_argument("--bn_momentum", type=float, default=0.85)
 
 # loss function arguments
 parser.add_argument("--max_weight", type=float, default=1.0)
-parser.add_argument("--increase_epochs", type=int, default=5)
+parser.add_argument("--increase_epochs", type=int, default=10)
 parser.add_argument("--strel_size", type=int, default=3)
 parser.add_argument("--strel_spread", type=int, default=2)
 parser.add_argument("--strel_iterations", type=int, default=10)
@@ -81,12 +82,27 @@ data_val = [
 ]
 
 # NOTE: we want the same number of labeled and pseudo-labeled data batches
-# the number of batches is ceil(len(data) * crops_per_image / batch_size)
-# Everything else is determined, so we must find crops_per_image_labeled as follows
+# NOTE: the number of batches is ceil(len(data) * crops_per_image / batch_size)
+# NOTE: Everything else is determined, so we must find crops_per_image_labeled
 crops_per_image_labeled = len(data_pseudo)
 crops_per_image_labeled *= args.crops_per_image_pseudo
-crops_per_image_labeled *= args.batch_size_labe
-crops_per_image_labeled //= len(data_train) * args.batch_size_labeled
+crops_per_image_labeled *= args.batch_size_labeled
+crops_per_image_labeled //= len(data_train) * args.batch_size_pseudo
+
+samples_per_epoch_label = crops_per_image_labeled * len(data_train)
+samples_per_epoch_pseudo = args.crops_per_image_pseudo * len(data_pseudo)
+steps_per_epoch_labeled = int(
+    np.ceil(samples_per_epoch_label / args.batch_size_labeled))
+steps_per_epoch_pseudo = int(
+    np.ceil(samples_per_epoch_pseudo / args.batch_size_pseudo))
+# verify that everything is at it should be
+if steps_per_epoch_pseudo != steps_per_epoch_labeled:
+    msg1 = f'labeled: \n crops/image: {crops_per_image_labeled}, num images: {len(data_train)}, batch_size: {args.batch_size_labeled}'
+    msg2 = f'pseudo: \n crops/image: {args.crops_per_image_pseudo}, num images: {len(data_pseudo)}, batch_size: {args.batch_size_pseudo}'
+    raise ValueError(
+        'number of steps is wrong! \n' + msg1 + '\n' + msg2
+    )
+steps_per_epoch = steps_per_epoch_pseudo
 
 
 def gen_train_labeled():
@@ -103,15 +119,12 @@ def gen_val():
         yield image, label
 
 
-samples_per_epoch = len(data_train) * len(data_pseudo)
-steps_per_epoch = int(np.ceil(samples_per_epoch / args.batch_size))
-
 ds_train_labeled = tf.data.Dataset.from_generator(
     gen_train_labeled,
     output_types=(tf.float32, tf.int32),
     output_shapes=((None, None, 3), (None, None)),
 )
-ds_train_labeled = ds_train_labeled.shuffle(samples_per_epoch)
+ds_train_labeled = ds_train_labeled.shuffle(samples_per_epoch_label)
 ds_train_labeled = ds_train_labeled.map(
     lambda im, gt: resize_inputs(im, gt, args.crop_size),
     num_parallel_calls=tf.data.AUTOTUNE,
@@ -128,7 +141,7 @@ ds_train_pseudo = tf.data.Dataset.from_generator(
     output_types=(tf.float32, tf.int32),
     output_shapes=((None, None, 3), (None, None)),
 )
-ds_train_pseudo = ds_train_pseudo.shuffle(samples_per_epoch)
+ds_train_pseudo = ds_train_pseudo.shuffle(samples_per_epoch_pseudo)
 ds_train_pseudo = ds_train_pseudo.map(
     lambda im, gt: resize_inputs(im, gt, args.crop_size),
     num_parallel_calls=tf.data.AUTOTUNE,
@@ -141,7 +154,7 @@ ds_train_pseudo = ds_train_pseudo.repeat()
 
 ds_zip = tf.data.Dataset.zip((ds_train_labeled, ds_train_pseudo))
 ds_train = ds_zip.map(lambda a, b: (tf.concat((a[0], b[0]), 0), tf.concat((a[1], b[1]), 0)),
-                       num_parallel_calls=tf.data.AUTOTUNE)
+                      num_parallel_calls=tf.data.AUTOTUNE)
 
 ds_train = ds_train.prefetch(tf.data.AUTOTUNE)
 
@@ -209,7 +222,7 @@ model.compile(
 )
 
 model.fit(
-    ds_train_labeled,
+    ds_train,
     steps_per_epoch=steps_per_epoch,
     validation_data=ds_val,
     validation_steps=len(data_val),

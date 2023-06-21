@@ -56,3 +56,24 @@ def read_dataset(data_root, subset, image_list=None):
         label = read_label(os.path.join(data_dir, "labels", fname))
         dataset.append((image, label))
     return dataset
+
+
+def read_dataset_pseudo(data_root, subset, labels_dir, image_list=None):
+    """
+    reads the dataset as a list of (image, label) tuples
+    """
+    data_dir = os.path.join(data_root, subset)
+    if image_list is None:
+        filenames = os.listdir(os.path.join(data_dir, "images"))
+    elif isinstance(image_list, str):
+        df = pd.read_csv(image_list)
+        df = list(df['name'])
+    else:
+        filenames = image_list
+
+    dataset = list()
+    for fname in filenames:
+        image = imread(os.path.join(data_dir, "images", fname))
+        label = read_label(os.path.join(labels_dir, fname))
+        dataset.append((image, label))
+    return dataset

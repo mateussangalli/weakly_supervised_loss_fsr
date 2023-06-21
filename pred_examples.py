@@ -8,10 +8,10 @@ from keras.models import load_model
 from skimage.io import imsave
 
 from utils.combined_loss import CombinedLoss
-from utils.data_loading import read_dataset
+from utils.data_loading import read_dataset, save_label
 from utils.directional_relations import PRPDirectionalPenalty
 from utils.jaccard_loss import OneHotMeanIoU
-from utils.utils import crop_to_multiple_of
+from utils.utils import pad_to_multiple_of
 
 parser = argparse.ArgumentParser()
 # data dir arguments
@@ -25,13 +25,9 @@ args = parser.parse_args()
 run_dir = os.path.join(args.runs_dir, args.run_id)
 
 # load data
-images = os.listdir(os.path.join(args.data_root, args.subset, "images"))
+filenames = os.listdir(os.path.join(args.data_root, args.subset, "images"))
 
-data = read_dataset(args.data_root, args.subset, images)
-data = [
-    (crop_to_multiple_of(im, 32),
-     crop_to_multiple_of(gt, 32)) for (im, gt) in data
-]
+data = read_dataset(args.data_root, args.subset, filenames)
 
 
 def gen_val():
@@ -70,11 +66,16 @@ model = load_model(os.path.join(run_dir, 'saved_model'),
                    custom_objects=custom_objects,
                    compile=False)
 
+proba_dir = os.path.join(run_dir, 'probability_maps', args.subset)
 pred_dir = os.path.join(run_dir, 'predictions', args.subset)
 os.makedirs(pred_dir, exist_ok=True)
-for i, (im, _) in enumerate(data):
+os.makedirs(proba_dir, exist_ok=True)
+for i, ((im, _), name) in enumerate(zip(data, filenames)):
+    im, (pad1, pad2) = pad_to_multiple_of(im, 32)
     im = im.astype(np.float32) / 255.0
-    pred = model(im[np.newaxis, ...])
-    pred = np.array(pred)[0, ...]
-    pred = (pred * 255.).astype(np.uint8)
-    imsave(os.path.join(pred_dir, f'pred{i}.png'), pred)
+    proba = model(im[np.newaxis, ...])
+    proba = np.array(proba)[0, :-pad1, :-pad2, ...]
+    proba = (proba * 255.).astype(np.uint8)
+    pred = np.argmax(proba, -1)
+    imsave(os.path.join(proba_dir, name), proba)
+    save_label(pred, os.path.join(pred_dir, name))

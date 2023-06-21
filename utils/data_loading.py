@@ -37,7 +37,7 @@ def read_label(filename, one_hot=False):
         return np.argmax(label, -1)
 
 
-def read_dataset(data_root, subset, image_list=None):
+def read_dataset(data_root, subset, image_list=None, min_size=(256, 256)):
     """
     reads the dataset as a list of (image, label) tuples
     """
@@ -53,14 +53,16 @@ def read_dataset(data_root, subset, image_list=None):
     dataset = list()
     for fname in filenames:
         image = imread(os.path.join(data_dir, "images", fname))
+        if image.shape[0] < min_size[0] or image.shape[1] < min_size[1]:
+            continue
         label = read_label(os.path.join(data_dir, "labels", fname))
         dataset.append((image, label))
     return dataset
 
 
-def read_dataset_pseudo(data_root, subset, labels_dir, image_list=None):
+def read_dataset_pseudo(data_root, subset, labels_dir, image_list=None, min_size=(256, 256)):
     """
-    reads the dataset as a list of (image, label) tuples
+    reads the dataset as a list of (image, label) tuples, but the labels come from another folder
     """
     data_dir = os.path.join(data_root, subset)
     if image_list is None:
@@ -74,6 +76,8 @@ def read_dataset_pseudo(data_root, subset, labels_dir, image_list=None):
     dataset = list()
     for fname in filenames:
         image = imread(os.path.join(data_dir, "images", fname))
-        label = read_label(os.path.join(labels_dir, "labels", fname))
+        if image.shape[0] < min_size[0] or image.shape[1] < min_size[1]:
+            continue
+        label = read_label(os.path.join(labels_dir, fname))
         dataset.append((image, label))
     return dataset

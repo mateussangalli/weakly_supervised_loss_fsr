@@ -27,6 +27,7 @@ parser.add_argument("--runs_dir", type=str, default="labeled_runs")
 parser.add_argument("--batch_size", type=int, default=16)
 parser.add_argument("--epochs", type=int, default=300)
 parser.add_argument("--starting_lr", type=float, default=1e-5)
+parser.add_argument("--val_freq", type=int, default=1)
 
 # crop generator arguments
 parser.add_argument("--crop_size", type=int, default=192)
@@ -42,6 +43,9 @@ parser.add_argument("--bn_momentum", type=float, default=0.85)
 # loss function arguments
 parser.add_argument("--max_weight", type=float, default=1.0)
 parser.add_argument("--increase_epochs", type=int, default=50)
+parser.add_argument("--strel_size", type=int, default=3)
+parser.add_argument("--strel_spread", type=int, default=2)
+parser.add_argument("--strel_iterations", type=int, default=10)
 
 # verbose
 parser.add_argument("--verbose", type=int, default=2)
@@ -125,7 +129,9 @@ model = UNetBuilder(
     normalize_all=False,
     batch_norm_momentum=args.bn_momentum,
 ).build()
-directional_loss = PRPDirectionalPenalty(3, 2, 5)
+directional_loss = PRPDirectionalPenalty(args.strel_size,
+                                         args.strel_spread,
+                                         args.strel_iterations)
 
 
 def directional_loss_metric(y, y_pred, **kwargs):
@@ -140,7 +146,9 @@ def crossentropy_metric(y_true, y_pred, **kwargs):
 
 loss_fn = CombinedLoss(
     CategoricalCrossentropy(from_logits=False),
-    PRPDirectionalPenalty(3, 2, 5),
+    PRPDirectionalPenalty(args.strel_size,
+                          args.strel_spread,
+                          args.strel_iterations),
     args.increase_epochs,
     args.max_weight,
 )
@@ -164,7 +172,8 @@ model.fit(
     epochs=args.epochs,
     callbacks=[loss_fn.callback,
                CSVLogger(os.path.join(run_dir, 'training_history.csv'))],
-    verbose=args.verbose
+    verbose=args.verbose,
+    validation_freq=args.val_freq
 )
 
 model.save(os.path.join(run_dir, 'saved_model'))

@@ -18,25 +18,24 @@ parser = argparse.ArgumentParser()
 parser.add_argument("run_id", type=str)
 parser.add_argument("--data_root", type=str, default="~/weak_supervision_data")
 parser.add_argument("--runs_dir", type=str, default="labeled_runs")
-
+parser.add_argument("--subset", type=str, default="val")
 args = parser.parse_args()
 
 
 run_dir = os.path.join(args.runs_dir, args.run_id)
 
 # load data
-val_images = os.listdir(os.path.join(args.data_root, "val", "images"))
-val_images = [val_images[3], val_images[4], val_images[5]]
+images = os.listdir(os.path.join(args.data_root, args.subset, "images"))
 
-data_val = read_dataset(args.data_root, "val", val_images)
-data_val = [
+data = read_dataset(args.data_root, args.subset, images)
+data = [
     (crop_to_multiple_of(im, 32),
-     crop_to_multiple_of(gt, 32)) for (im, gt) in data_val
+     crop_to_multiple_of(gt, 32)) for (im, gt) in data
 ]
 
 
 def gen_val():
-    for image, label in data_val:
+    for image, label in data:
         image = image.astype(np.float32) / 255.0
         yield image, label
 
@@ -71,9 +70,9 @@ model = load_model(os.path.join(run_dir, 'saved_model'),
                    custom_objects=custom_objects,
                    compile=False)
 
-pred_dir = os.path.join(run_dir, 'predictions')
+pred_dir = os.path.join(run_dir, 'predictions', args.subset)
 os.makedirs(pred_dir, exist_ok=True)
-for i, (im, _) in enumerate(data_val):
+for i, (im, _) in enumerate(data):
     im = im.astype(np.float32) / 255.0
     pred = model(im[np.newaxis, ...])
     pred = np.array(pred)[0, ...]

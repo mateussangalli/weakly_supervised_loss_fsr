@@ -5,12 +5,12 @@ from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
-from keras.losses import CategoricalCrossentropy
-from keras.optimizers import Adam
 from keras.callbacks import CSVLogger
+from keras.losses import CategoricalCrossentropy
 
 from utils.combined_loss import CombinedLoss
-from utils.data_augmentation import resize_inputs
+from utils.data_augmentation import (RandomRotation, random_horizontal_flip,
+                                     resize_inputs)
 from utils.data_generation import crop_generator
 from utils.data_loading import read_dataset
 from utils.directional_relations import PRPDirectionalPenalty
@@ -26,8 +26,10 @@ parser.add_argument("--runs_dir", type=str, default="labeled_runs")
 # training arguments
 parser.add_argument("--batch_size", type=int, default=16)
 parser.add_argument("--epochs", type=int, default=300)
-parser.add_argument("--starting_lr", type=float, default=1e-5)
+parser.add_argument("--starting_lr", type=float, default=1e-4)
 parser.add_argument("--val_freq", type=int, default=1)
+parser.add_argument("--weight_decay", type=float, default=1e-4)
+parser.add_argument("--rotation_angle", type=float, default=np.pi/8.)
 
 # crop generator arguments
 parser.add_argument("--crop_size", type=int, default=192)
@@ -63,7 +65,8 @@ run_dir = os.path.join(args.runs_dir, run_name)
 
 # load data
 train_images = os.listdir(os.path.join(args.data_root, "train", "images"))
-train_images = [train_images[3], train_images[4], train_images[5], train_images[34], train_images[64]]
+train_images = [train_images[3], train_images[4],
+                train_images[5], train_images[34], train_images[64]]
 
 data_train = read_dataset(args.data_root, "train", train_images)
 data_val = read_dataset(args.data_root, "val")
@@ -97,14 +100,23 @@ ds_train = ds_train.map(
     num_parallel_calls=tf.data.AUTOTUNE,
 )
 ds_train = ds_train.map(
+    RandomRotation(args.rotation_angle),
+    num_parallel_calls=tf.data.AUTOTUNE,
+)
+ds_train = ds_train.map(
     lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
+)
+ds_train = ds_train.map(
+    random_horizontal_flip,
+    num_parallel_calls=tf.data.AUTOTUNE,
 )
 ds_train = ds_train.batch(args.batch_size)
 ds_train = ds_train.repeat()
 ds_train = ds_train.prefetch(tf.data.AUTOTUNE)
 
 
-ds_val = tf.data.Dataset.from_generator(gen_val, output_types=(tf.float32, tf.int32))
+ds_val = tf.data.Dataset.from_generator(
+    gen_val, output_types=(tf.float32, tf.int32))
 ds_val = ds_val.map(
     lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
 )
@@ -140,6 +152,7 @@ def directional_loss_metric(y, y_pred, **kwargs):
 
 crossentropy = CategoricalCrossentropy(from_logits=False)
 
+
 def crossentropy_metric(y_true, y_pred, **kwargs):
     return crossentropy(y_true, y_pred)
 
@@ -155,7 +168,8 @@ loss_fn = CombinedLoss(
 
 
 model.compile(
-    optimizer=Adam(args.starting_lr),
+    optimizer=tf.keras.optimizers.experimental.AdamW(
+        args.starting_lr, weight_decay=args.weight_decay),
     loss=loss_fn,
     metrics=[
         OneHotMeanIoU(3),

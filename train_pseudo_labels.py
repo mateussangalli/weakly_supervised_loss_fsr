@@ -7,10 +7,10 @@ import numpy as np
 import tensorflow as tf
 from keras.callbacks import CSVLogger
 from keras.losses import CategoricalCrossentropy
-from keras.optimizers import Adam
 
 from utils.combined_loss import CombinedLoss
-from utils.data_augmentation import resize_inputs
+from utils.data_augmentation import (RandomRotation, random_horizontal_flip,
+                                     resize_inputs)
 from utils.data_generation import crop_generator
 from utils.data_loading import read_dataset, read_dataset_pseudo
 from utils.directional_relations import PRPDirectionalPenalty
@@ -29,8 +29,10 @@ parser.add_argument("--runs_dir", type=str, default="pseudo_labels_runs")
 parser.add_argument("--batch_size_labeled", type=int, default=4)
 parser.add_argument("--batch_size_pseudo", type=int, default=12)
 parser.add_argument("--epochs", type=int, default=30)
-parser.add_argument("--starting_lr", type=float, default=1e-5)
+parser.add_argument("--starting_lr", type=float, default=1e-4)
 parser.add_argument("--val_freq", type=int, default=1)
+parser.add_argument("--weight_decay", type=float, default=1e-4)
+parser.add_argument("--rotation_angle", type=float, default=np.pi/8.)
 
 # crop generator arguments
 parser.add_argument("--crop_size", type=int, default=192)
@@ -130,7 +132,15 @@ ds_train_labeled = ds_train_labeled.map(
     num_parallel_calls=tf.data.AUTOTUNE,
 )
 ds_train_labeled = ds_train_labeled.map(
+    RandomRotation(args.rotation_angle),
+    num_parallel_calls=tf.data.AUTOTUNE,
+)
+ds_train_labeled = ds_train_labeled.map(
     lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
+)
+ds_train_labeled = ds_train_labeled.map(
+    random_horizontal_flip,
+    num_parallel_calls=tf.data.AUTOTUNE,
 )
 ds_train_labeled = ds_train_labeled.batch(args.batch_size_labeled)
 ds_train_labeled = ds_train_labeled.repeat()
@@ -147,7 +157,15 @@ ds_train_pseudo = ds_train_pseudo.map(
     num_parallel_calls=tf.data.AUTOTUNE,
 )
 ds_train_pseudo = ds_train_pseudo.map(
+    RandomRotation(args.rotation_angle),
+    num_parallel_calls=tf.data.AUTOTUNE,
+)
+ds_train_pseudo = ds_train_pseudo.map(
     lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
+)
+ds_train_pseudo = ds_train_pseudo.map(
+    random_horizontal_flip,
+    num_parallel_calls=tf.data.AUTOTUNE,
 )
 ds_train_pseudo = ds_train_pseudo.batch(args.batch_size_pseudo)
 ds_train_pseudo = ds_train_pseudo.repeat()
@@ -212,7 +230,8 @@ loss_fn = CombinedLoss(
 
 
 model.compile(
-    optimizer=Adam(args.starting_lr),
+    optimizer=tf.keras.optimizers.experimental.AdamW(
+        args.starting_lr, weight_decay=args.weight_decay),
     loss=loss_fn,
     metrics=[
         OneHotMeanIoU(3),

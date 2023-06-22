@@ -33,6 +33,7 @@ parser.add_argument("--epochs", type=int, default=30)
 parser.add_argument("--starting_lr", type=float, default=1e-4)
 parser.add_argument("--val_freq", type=int, default=1)
 parser.add_argument("--weight_decay", type=float, default=1e-4)
+parser.add_argument("--lr_decay_rate", type=float, default=0.03)
 parser.add_argument("--rotation_angle", type=float, default=np.pi/8.)
 
 # crop generator arguments
@@ -71,7 +72,6 @@ if args.run_id == '':
     run_name = f'weight{weight_str}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
 else:
     run_name = args.run_id
-run_dir = os.path.join(args.runs_dir, run_name)
 run_dir = os.path.join(args.runs_dir, run_name)
 
 # load data

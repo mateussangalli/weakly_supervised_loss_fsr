@@ -88,6 +88,7 @@ samples_per_epoch = len(data_train) * args.crops_per_image
 steps_per_epoch = int(np.ceil(samples_per_epoch / args.batch_size))
 
 ds_train = get_tf_train_dataset(data_train, vars(args))
+ds_train = ds_train.prefetch(tf.data.AUTOTUNE)
 
 
 ds_val = tf.data.Dataset.from_generator(

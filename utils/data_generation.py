@@ -7,8 +7,7 @@ from .data_augmentation import (RandomRotation, random_horizontal_flip,
 
 
 def crop_generator(
-    data, crop_size, crops_per_image, scale_range,
-    yield_label=True, normalize=True
+    data, crop_size, crops_per_image, scale_range, yield_label=True, normalize=True
 ):
     """
     Takes a list of (image, label) pairs and yields crops of the images.
@@ -35,8 +34,9 @@ def crop_generator(
         if normalize:
             image = image.astype(np.float32) / 255.0
         for i in range(crops_per_image):
-            s = np.random.uniform(low=np.log(scale_range[0]),
-                                  high=np.log(scale_range[1]))
+            s = np.random.uniform(
+                low=np.log(scale_range[0]), high=np.log(scale_range[1])
+            )
             s = np.exp(s)
             new_size = (int(crop_size[0] * s), int(crop_size[1] * s))
             im_crop, gt_crop = select_crop(image, label, new_size)
@@ -47,14 +47,15 @@ def crop_generator(
 
 
 def get_tf_train_dataset(data, params):
-
     if params["min_scale"] < 0.0:
         scale_range = (1.0 / params["max_scale"], params["max_scale"])
     else:
         scale_range = (params["min_scale"], params["max_scale"])
 
     def gen_train():
-        return crop_generator(data, params["crop_size"], params["crops_per_image"], scale_range)
+        return crop_generator(
+            data, params["crop_size"], params["crops_per_image"], scale_range
+        )
 
     samples_per_epoch = len(data) * params["crops_per_image"]
 
@@ -81,4 +82,5 @@ def get_tf_train_dataset(data, params):
     )
     ds_train = ds_train.batch(params["batch_size"])
     ds_train = ds_train.repeat()
-    ds_train = ds_train.prefetch(tf.data.AUTOTUNE)
+
+    return ds_train

@@ -1,6 +1,9 @@
 import numpy as np
+import tensorflow as tf
 
 from .crop_selection import select_crop
+from .data_augmentation import (RandomRotation, random_horizontal_flip,
+                                resize_inputs)
 
 
 def crop_generator(
@@ -41,3 +44,41 @@ def crop_generator(
                 yield im_crop, gt_crop
             else:
                 yield im_crop
+
+
+def get_tf_train_dataset(data, params):
+
+    if params["min_scale"] < 0.0:
+        scale_range = (1.0 / params["max_scale"], params["max_scale"])
+    else:
+        scale_range = (params["min_scale"], params["max_scale"])
+
+    def gen_train():
+        return crop_generator(data, params["crop_size"], params["crops_per_image"], scale_range)
+
+    samples_per_epoch = len(data) * params["crops_per_image"]
+
+    ds_train = tf.data.Dataset.from_generator(
+        gen_train,
+        output_types=(tf.float32, tf.int32),
+        output_shapes=((None, None, 3), (None, None)),
+    )
+    ds_train = ds_train.shuffle(samples_per_epoch)
+    ds_train = ds_train.map(
+        lambda im, gt: resize_inputs(im, gt, params["crop_size"]),
+        num_parallel_calls=tf.data.AUTOTUNE,
+    )
+    ds_train = ds_train.map(
+        RandomRotation(params["rotation_angle"]),
+        num_parallel_calls=tf.data.AUTOTUNE,
+    )
+    ds_train = ds_train.map(
+        lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
+    )
+    ds_train = ds_train.map(
+        random_horizontal_flip,
+        num_parallel_calls=tf.data.AUTOTUNE,
+    )
+    ds_train = ds_train.batch(params["batch_size"])
+    ds_train = ds_train.repeat()
+    ds_train = ds_train.prefetch(tf.data.AUTOTUNE)

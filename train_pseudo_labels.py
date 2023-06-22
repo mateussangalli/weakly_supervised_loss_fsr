@@ -1,16 +1,14 @@
 import argparse
+from datetime import datetime
 import json
 import os
-from datetime import datetime
 
-import numpy as np
-import tensorflow as tf
 from keras.callbacks import CSVLogger, LearningRateScheduler
 from keras.losses import CategoricalCrossentropy
+import numpy as np
+import tensorflow as tf
 
 from utils.combined_loss import CombinedLoss
-from utils.data_augmentation import (RandomRotation, random_horizontal_flip,
-                                     resize_inputs)
 from utils.data_generation import get_tf_train_dataset
 from utils.data_loading import read_dataset, read_dataset_pseudo
 from utils.directional_relations import PRPDirectionalPenalty
@@ -27,6 +25,7 @@ parser.add_argument("--runs_dir", type=str, default="pseudo_labels_runs")
 
 # training arguments
 # WARN: make sure that batch_size_labeled divides batch_size_pseudo
+parser.add_argument("--num_images_labeled", type=int, default=3)
 parser.add_argument("--batch_size_labeled", type=int, default=16)
 parser.add_argument("--batch_size_pseudo", type=int, default=48)
 parser.add_argument("--epochs", type=int, default=30)
@@ -41,7 +40,7 @@ parser.add_argument("--crop_size", type=int, default=192)
 # WARN: please choose a number of crops_per_image_pseudo such that
 #  num_images_pseudo * crops_per_image_pseudo * batch_size_labeled is a multiple of
 #  num_images_labeled * batch_size_pseudo
-parser.add_argument("--crops_per_image_pseudo", type=int, default=5)
+parser.add_argument("--crops_per_image_pseudo", type=int, default=3)
 parser.add_argument("--min_scale", type=float, default=-1.0)
 parser.add_argument("--max_scale", type=float, default=1.3)
 
@@ -76,8 +75,17 @@ run_dir = os.path.join(args.runs_dir, run_name)
 
 # load data
 train_images = os.listdir(os.path.join(args.data_root, "train", "images"))
-train_images_labeled = [train_images[3], train_images[4],
-                        train_images[5], train_images[34], train_images[64]]
+if args.num_images_labeled > 0:
+    train_images_labeled = [
+        train_images[3],
+        train_images[34],
+        train_images[64],
+        train_images[4],
+        train_images[5],
+    ][: args.num_images_labeled]
+else:
+    train_images_labeled = train_images
+
 
 data_train = read_dataset(args.data_root, "train", train_images_labeled)
 data_pseudo = read_dataset_pseudo(

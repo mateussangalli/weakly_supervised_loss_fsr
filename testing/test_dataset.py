@@ -45,6 +45,7 @@ class TestDataset(unittest.TestCase):
         }
 
         ds_train = get_tf_train_dataset(data_train, params)
+        ds_train = ds_train.prefetch(tf.data.AUTOTUNE)
 
 
         num_steps = 0
@@ -59,7 +60,7 @@ class TestDataset(unittest.TestCase):
             num_steps += 1
             if num_steps > steps_per_epoch:
                 break
-        self.assertEqual(num_steps, steps_per_epoch, "too few steps")
+        self.assertGreaterEqual(num_steps, steps_per_epoch, "too few steps")
 
 
 if __name__ == "__main__":

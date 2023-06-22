@@ -11,7 +11,7 @@ from keras.losses import CategoricalCrossentropy
 from utils.combined_loss import CombinedLoss
 from utils.data_augmentation import (RandomRotation, random_horizontal_flip,
                                      resize_inputs)
-from utils.data_generation import crop_generator
+from utils.data_generation import get_tf_train_dataset
 from utils.data_loading import read_dataset, read_dataset_pseudo
 from utils.directional_relations import PRPDirectionalPenalty
 from utils.jaccard_loss import OneHotMeanIoU
@@ -106,76 +106,35 @@ if steps_per_epoch_pseudo != steps_per_epoch_labeled:
     )
 steps_per_epoch = steps_per_epoch_pseudo
 
+params_labeled = {
+    "min_scale": args.min_scale,
+    "max_scale": args.max_scale,
+    "crop_size": args.crop_size,
+    "rotation_angle": args.rotation_angle,
+    "crops_per_image": crops_per_image_labeled,
+    "batch_size": args.batch_size_labeled
+}
+params_pseudo = {
+    "min_scale": args.min_scale,
+    "max_scale": args.max_scale,
+    "crop_size": args.crop_size,
+    "rotation_angle": args.rotation_angle,
+    "crops_per_image": args.crops_per_image_pseudo,
+    "batch_size": args.batch_size_pseudo
+}
 
-def gen_train_labeled():
-    return crop_generator(data_train, args.crop_size, crops_per_image_labeled, scale_range)
-
-
-def gen_train_pseudo():
-    return crop_generator(data_pseudo, args.crop_size, args.crops_per_image_pseudo, scale_range)
+ds_train_labeled = get_tf_train_dataset(data_train, params_labeled)
+ds_train_pseudo = get_tf_train_dataset(data_pseudo, params_pseudo)
+ds_zip = tf.data.Dataset.zip((ds_train_labeled, ds_train_pseudo))
+ds_train = ds_zip.map(lambda a, b: (tf.concat((a[0], b[0]), 0), tf.concat((a[1], b[1]), 0)),
+                      num_parallel_calls=tf.data.AUTOTUNE)
+ds_train = ds_train.prefetch(tf.data.AUTOTUNE)
 
 
 def gen_val():
     for image, label in data_val:
         image = image.astype(np.float32) / 255.0
         yield image, label
-
-
-ds_train_labeled = tf.data.Dataset.from_generator(
-    gen_train_labeled,
-    output_types=(tf.float32, tf.int32),
-    output_shapes=((None, None, 3), (None, None)),
-)
-ds_train_labeled = ds_train_labeled.shuffle(samples_per_epoch_label)
-ds_train_labeled = ds_train_labeled.map(
-    lambda im, gt: resize_inputs(im, gt, args.crop_size),
-    num_parallel_calls=tf.data.AUTOTUNE,
-)
-ds_train_labeled = ds_train_labeled.map(
-    RandomRotation(args.rotation_angle),
-    num_parallel_calls=tf.data.AUTOTUNE,
-)
-ds_train_labeled = ds_train_labeled.map(
-    lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
-)
-ds_train_labeled = ds_train_labeled.map(
-    random_horizontal_flip,
-    num_parallel_calls=tf.data.AUTOTUNE,
-)
-ds_train_labeled = ds_train_labeled.batch(args.batch_size_labeled)
-ds_train_labeled = ds_train_labeled.repeat()
-
-
-ds_train_pseudo = tf.data.Dataset.from_generator(
-    gen_train_pseudo,
-    output_types=(tf.float32, tf.int32),
-    output_shapes=((None, None, 3), (None, None)),
-)
-ds_train_pseudo = ds_train_pseudo.shuffle(samples_per_epoch_pseudo)
-ds_train_pseudo = ds_train_pseudo.map(
-    lambda im, gt: resize_inputs(im, gt, args.crop_size),
-    num_parallel_calls=tf.data.AUTOTUNE,
-)
-ds_train_pseudo = ds_train_pseudo.map(
-    RandomRotation(args.rotation_angle),
-    num_parallel_calls=tf.data.AUTOTUNE,
-)
-ds_train_pseudo = ds_train_pseudo.map(
-    lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
-)
-ds_train_pseudo = ds_train_pseudo.map(
-    random_horizontal_flip,
-    num_parallel_calls=tf.data.AUTOTUNE,
-)
-ds_train_pseudo = ds_train_pseudo.batch(args.batch_size_pseudo)
-ds_train_pseudo = ds_train_pseudo.repeat()
-
-ds_zip = tf.data.Dataset.zip((ds_train_labeled, ds_train_pseudo))
-ds_train = ds_zip.map(lambda a, b: (tf.concat((a[0], b[0]), 0), tf.concat((a[1], b[1]), 0)),
-                      num_parallel_calls=tf.data.AUTOTUNE)
-
-ds_train = ds_train.prefetch(tf.data.AUTOTUNE)
-
 
 ds_val = tf.data.Dataset.from_generator(
     gen_val, output_types=(tf.float32, tf.int32))

@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import tensorflow_io as tfio
+import tensorflow_addons as tfa
 from keras import backend
 from keras.layers import Layer
 from keras.losses import kl_divergence
@@ -404,6 +405,24 @@ class MultipleAugmentationsKLRegularization(Layer):
         output = control_flow_util.smart_cond(training, apply_loss,
                                               lambda: tf.identity(inputs))
         return output
+
+
+class RandomRotation:
+    def __init__(self, angle):
+        self.max_angle = angle
+        self.min_angle = -angle
+
+    def __call__(self, image, gt):
+        angle = tf.random.uniform((1,), self.min_angle, self.max_angle)
+        im_out = tfa.image.rotate(image,
+                                  angle,
+                                  interpolation='bilinear',
+                                  fill_mode='reflect')
+        gt_out = tfa.image.rotate(gt,
+                                  angle,
+                                  interpolation='nearest',
+                                  fill_mode='reflect')
+        return im_out, gt_out
 
 
 def crop_to_multiple_of_preproc(image, label, k=32):

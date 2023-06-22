@@ -11,7 +11,7 @@ from keras.losses import CategoricalCrossentropy
 from utils.combined_loss import CombinedLoss
 from utils.data_augmentation import (RandomRotation, random_horizontal_flip,
                                      resize_inputs)
-from utils.data_generation import crop_generator
+from utils.data_generation import get_tf_train_dataset
 from utils.data_loading import read_dataset
 from utils.directional_relations import PRPDirectionalPenalty
 from utils.jaccard_loss import OneHotMeanIoU
@@ -24,6 +24,7 @@ parser.add_argument("--data_root", type=str, default="../prp_loreal_data")
 parser.add_argument("--runs_dir", type=str, default="labeled_runs")
 
 # training arguments
+parser.add_argument("--num_images", type=int, default=5)
 parser.add_argument("--batch_size", type=int, default=16)
 parser.add_argument("--epochs", type=int, default=300)
 parser.add_argument("--starting_lr", type=float, default=1e-4)
@@ -65,8 +66,9 @@ run_dir = os.path.join(args.runs_dir, run_name)
 
 # load data
 train_images = os.listdir(os.path.join(args.data_root, "train", "images"))
-train_images = [train_images[3], train_images[4],
-                train_images[5], train_images[34], train_images[64]]
+if args.num_images > 0:
+    train_images = [train_images[3], train_images[4],
+                    train_images[5], train_images[34], train_images[64]][:args.num_images]
 
 data_train = read_dataset(args.data_root, "train", train_images)
 data_val = read_dataset(args.data_root, "val")
@@ -74,10 +76,6 @@ data_val = [
     (crop_to_multiple_of(im, 2**args.depth),
      crop_to_multiple_of(gt, 2**args.depth)) for (im, gt) in data_val
 ]
-
-
-def gen_train():
-    return crop_generator(data_train, args.crop_size, args.crops_per_image, scale_range)
 
 
 def gen_val():
@@ -89,30 +87,7 @@ def gen_val():
 samples_per_epoch = len(data_train) * args.crops_per_image
 steps_per_epoch = int(np.ceil(samples_per_epoch / args.batch_size))
 
-ds_train = tf.data.Dataset.from_generator(
-    gen_train,
-    output_types=(tf.float32, tf.int32),
-    output_shapes=((None, None, 3), (None, None)),
-)
-ds_train = ds_train.shuffle(samples_per_epoch)
-ds_train = ds_train.map(
-    lambda im, gt: resize_inputs(im, gt, args.crop_size),
-    num_parallel_calls=tf.data.AUTOTUNE,
-)
-ds_train = ds_train.map(
-    RandomRotation(args.rotation_angle),
-    num_parallel_calls=tf.data.AUTOTUNE,
-)
-ds_train = ds_train.map(
-    lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
-)
-ds_train = ds_train.map(
-    random_horizontal_flip,
-    num_parallel_calls=tf.data.AUTOTUNE,
-)
-ds_train = ds_train.batch(args.batch_size)
-ds_train = ds_train.repeat()
-ds_train = ds_train.prefetch(tf.data.AUTOTUNE)
+ds_train = get_tf_train_dataset(data_train, vars(args))
 
 
 ds_val = tf.data.Dataset.from_generator(

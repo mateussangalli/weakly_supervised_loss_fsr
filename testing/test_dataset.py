@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 
 from utils.data_augmentation import resize_inputs
-from utils.data_generation import crop_generator
+from utils.data_generation import get_tf_train_dataset
 from utils.data_loading import read_dataset
 
 DATA_ROOT = "../prp_loreal_data"
@@ -32,32 +32,20 @@ class TestDataset(unittest.TestCase):
         train_images = [train_images[3], train_images[4], train_images[5]]
         data_train = read_dataset(DATA_ROOT, "train", train_images)
 
-        def gen_train():
-            return crop_generator(data_train,
-                                  CROP_SIZE,
-                                  CROPS_PER_IMAGE,
-                                  SCALE_RANGE)
-
         samples_per_epoch = len(data_train) * CROPS_PER_IMAGE
         steps_per_epoch = int(np.ceil(samples_per_epoch / BATCH_SIZE))
 
-        ds_train = tf.data.Dataset.from_generator(
-            gen_train,
-            output_types=(tf.float32, tf.int32),
-            output_shapes=((None, None, 3), (None, None)),
-        )
-        ds_train = ds_train.shuffle(steps_per_epoch)
-        ds_train = ds_train.map(
-            lambda im, gt: resize_inputs(im, gt, CROP_SIZE),
-            num_parallel_calls=tf.data.AUTOTUNE,
-        )
-        ds_train = ds_train.map(
-            lambda im, gt: (im, tf.one_hot(gt, 3)),
-            num_parallel_calls=tf.data.AUTOTUNE
-        )
-        ds_train = ds_train.batch(BATCH_SIZE)
-        ds_train = ds_train.repeat(NUM_REPEAT)
-        ds_train = ds_train.prefetch(tf.data.AUTOTUNE)
+        params = {
+            "min_scale": -1.,
+            "max_scale": 1.3,
+            "crop_size": CROP_SIZE,
+            "crops_per_image": CROPS_PER_IMAGE,
+            "rotation_angle": np.pi / 8,
+            "batch_size": BATCH_SIZE
+        }
+
+        ds_train = get_tf_train_dataset(data_train, params)
+
 
         num_steps = 0
         for x, y in ds_train:
@@ -69,12 +57,9 @@ class TestDataset(unittest.TestCase):
             self.assertEqual(x.shape[3], 3, "wrong number of channels")
             self.assertEqual(y.shape[3], 3, "wrong number of channels")
             num_steps += 1
-        self.assertEqual(num_steps, steps_per_epoch * NUM_REPEAT, "wrong number of steps")
-
-        num_steps = 0
-        for x, y in ds_train:
-            num_steps += 1
-        self.assertEqual(num_steps, steps_per_epoch * NUM_REPEAT, "repeat not working")
+            if num_steps > steps_per_epoch:
+                break
+        self.assertEqual(num_steps, steps_per_epoch, "too few steps")
 
 
 if __name__ == "__main__":

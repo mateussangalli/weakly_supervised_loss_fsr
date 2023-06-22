@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
-import tensorflow_io as tfio
 import tensorflow_addons as tfa
+import tensorflow_io as tfio
 from keras import backend
 from keras.layers import Layer
 from keras.losses import kl_divergence
@@ -432,3 +432,18 @@ def crop_to_multiple_of_preproc(image, label, k=32):
     image_out = image[:shape[0] - crop1, :shape[1] - crop2, :]
     label_out = label[:shape[0] - crop1, :shape[1] - crop2, :]
     return image_out, label_out
+
+
+class ColorJittering:
+    def __init__(self, hue=0.1, saturation=0.1, brightness=0.1):
+        self.hue = hue
+        self.saturation = saturation
+        self.brightness = brightness
+        self.scaling = tf.constant([hue, saturation, brightness], tf.float32)
+        self.scaling = tf.reshape(self.scaling, (1, 1, 1, 3))
+
+    def __call__(self, im):
+        im = tf.image.rgb_to_hsv(im)
+        offset = tf.random.uniform((1, 1, 1, 3), -1., 1.) * self.scalings
+        im = im + offset
+        return tf.image.hsv_to_rgb(im)

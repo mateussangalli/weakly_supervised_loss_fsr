@@ -5,7 +5,7 @@ from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
-from keras.callbacks import CSVLogger
+from keras.callbacks import CSVLogger, LearningRateScheduler
 from keras.losses import CategoricalCrossentropy
 
 from utils.combined_loss import CombinedLoss

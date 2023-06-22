@@ -3,7 +3,7 @@ import tensorflow as tf
 
 from .crop_selection import select_crop
 from .data_augmentation import (RandomRotation, random_horizontal_flip,
-                                resize_inputs)
+                                resize_inputs, ColorJittering)
 
 
 def crop_generator(
@@ -73,6 +73,13 @@ def get_tf_train_dataset(data, params):
         RandomRotation(params["rotation_angle"]),
         num_parallel_calls=tf.data.AUTOTUNE,
     )
+    if ('color_jitter' in params) and (params['color_jitter']):
+        color_jitter = ColorJittering()
+        ds_train = ds_train.map(
+            lambda x, y: (color_jitter(x), y),
+            num_parallel_calls=tf.data.AUTOTUNE,
+        )
+
     ds_train = ds_train.map(
         lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
     )

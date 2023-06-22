@@ -20,16 +20,18 @@ from utils.utils import crop_to_multiple_of
 
 parser = argparse.ArgumentParser()
 # data dir arguments
+parser.add_argument("--run_id", type=str, default='')
 parser.add_argument("--data_root", type=str, default="~/weak_supervision_data")
 parser.add_argument("--runs_dir", type=str, default="labeled_runs")
 
 # training arguments
 parser.add_argument("--num_images", type=int, default=5)
-parser.add_argument("--batch_size", type=int, default=16)
+parser.add_argument("--batch_size", type=int, default=64)
 parser.add_argument("--epochs", type=int, default=300)
 parser.add_argument("--starting_lr", type=float, default=1e-4)
 parser.add_argument("--val_freq", type=int, default=1)
 parser.add_argument("--weight_decay", type=float, default=1e-4)
+parser.add_argument("--lr_decay_rate", type=float, default=0.03)
 parser.add_argument("--rotation_angle", type=float, default=np.pi/8.)
 
 # crop generator arguments
@@ -60,8 +62,11 @@ if args.min_scale < 0.0:
 else:
     scale_range = (args.min_scale, args.max_scale)
 
-weight_str = f'{args.max_weight:.4f}'.replace('.', 'p')
-run_name = f'weight{weight_str}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
+if args.run_id == '':
+    weight_str = f'{args.max_weight:.4f}'.replace('.', 'p')
+    run_name = f'weight{weight_str}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
+else:
+    run_name = args.run_id
 run_dir = os.path.join(args.runs_dir, run_name)
 
 # load data
@@ -144,7 +149,7 @@ loss_fn = CombinedLoss(
 
 
 model.compile(
-    optimizer=tf.keras.optimizers.experimental.AdamW(
+    optimizer=tf.keras.optimizers.experimental.Adam(
         args.starting_lr, weight_decay=args.weight_decay),
     loss=loss_fn,
     metrics=[
@@ -154,6 +159,12 @@ model.compile(
     ],
 )
 
+
+def schedule(epoch, lr):
+    if epoch > 0:
+        return lr * tf.exp(-args.lr_decay_rate)
+    return lr
+
 model.fit(
     ds_train,
     steps_per_epoch=steps_per_epoch,
@@ -161,7 +172,8 @@ model.fit(
     validation_steps=len(data_val),
     epochs=args.epochs,
     callbacks=[loss_fn.callback,
-               CSVLogger(os.path.join(run_dir, 'training_history.csv'))],
+               CSVLogger(os.path.join(run_dir, 'training_history.csv')),
+               LearningRateScheduler(schedule)],
     verbose=args.verbose,
     validation_freq=args.val_freq
 )

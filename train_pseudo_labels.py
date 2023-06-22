@@ -5,7 +5,7 @@ from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
-from keras.callbacks import CSVLogger
+from keras.callbacks import CSVLogger, LearningRateScheduler
 from keras.losses import CategoricalCrossentropy
 
 from utils.combined_loss import CombinedLoss
@@ -21,13 +21,14 @@ from utils.utils import crop_to_multiple_of
 parser = argparse.ArgumentParser()
 # data dir arguments
 parser.add_argument("pseudo_labels_dir", type=str)
+parser.add_argument("--run_id", type=str, default='')
 parser.add_argument("--data_root", type=str, default="~/weak_supervision_data")
 parser.add_argument("--runs_dir", type=str, default="pseudo_labels_runs")
 
 # training arguments
 # WARN: make sure that batch_size_labeled divides batch_size_pseudo
-parser.add_argument("--batch_size_labeled", type=int, default=4)
-parser.add_argument("--batch_size_pseudo", type=int, default=12)
+parser.add_argument("--batch_size_labeled", type=int, default=16)
+parser.add_argument("--batch_size_pseudo", type=int, default=48)
 parser.add_argument("--epochs", type=int, default=30)
 parser.add_argument("--starting_lr", type=float, default=1e-4)
 parser.add_argument("--val_freq", type=int, default=1)
@@ -65,8 +66,12 @@ if args.min_scale < 0.0:
 else:
     scale_range = (args.min_scale, args.max_scale)
 
-weight_str = f'{args.max_weight:.4f}'.replace('.', 'p')
-run_name = f'weight{weight_str}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
+if args.run_id == '':
+    weight_str = f'{args.max_weight:.4f}'.replace('.', 'p')
+    run_name = f'weight{weight_str}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
+else:
+    run_name = args.run_id
+run_dir = os.path.join(args.runs_dir, run_name)
 run_dir = os.path.join(args.runs_dir, run_name)
 
 # load data
@@ -136,6 +141,7 @@ def gen_val():
         image = image.astype(np.float32) / 255.0
         yield image, label
 
+
 ds_val = tf.data.Dataset.from_generator(
     gen_val, output_types=(tf.float32, tf.int32))
 ds_val = ds_val.map(
@@ -189,7 +195,7 @@ loss_fn = CombinedLoss(
 
 
 model.compile(
-    optimizer=tf.keras.optimizers.experimental.AdamW(
+    optimizer=tf.keras.optimizers.experimental.Adam(
         args.starting_lr, weight_decay=args.weight_decay),
     loss=loss_fn,
     metrics=[
@@ -199,6 +205,13 @@ model.compile(
     ],
 )
 
+
+def schedule(epoch, lr):
+    if epoch > 0:
+        return lr * tf.exp(-args.lr_decay_rate)
+    return lr
+
+
 model.fit(
     ds_train,
     steps_per_epoch=steps_per_epoch,
@@ -206,7 +219,8 @@ model.fit(
     validation_steps=len(data_val),
     epochs=args.epochs,
     callbacks=[loss_fn.callback,
-               CSVLogger(os.path.join(run_dir, 'training_history.csv'))],
+               CSVLogger(os.path.join(run_dir, 'training_history.csv')),
+               LearningRateScheduler(schedule)],
     verbose=args.verbose,
     validation_freq=args.val_freq
 )

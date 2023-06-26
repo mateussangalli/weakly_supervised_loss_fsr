@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-
+# TODO: almost everything
 class UnlabeledTrain:
     def __init__(self, model, loss_fn, reg_fn, optimizer, weight_max=1., weight_epochs=50):
         self.model = model

@@ -162,3 +162,4 @@ labeled_runs/
 pseudo_label_runs/
 batch/
 pseudo_labels_runs
+mean_teacher_runs/weight0p0000_2023-06-26_18-12-34

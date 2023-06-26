@@ -3,7 +3,6 @@ import os
 
 import numpy as np
 from keras.losses import CategoricalCrossentropy
-from keras.models import load_model
 from skimage.io import imsave
 
 from utils.combined_loss import CombinedLoss
@@ -11,7 +10,7 @@ from utils.data_loading import read_dataset, save_label
 from utils.directional_relations import PRPDirectionalPenalty
 from utils.im_tools import TwoLayers
 from utils.jaccard_loss import OneHotMeanIoU
-from utils.utils import pad_to_multiple_of
+from utils.utils import pad_to_multiple_of, load_model
 
 parser = argparse.ArgumentParser()
 # data dir arguments
@@ -36,35 +35,7 @@ def gen_val():
         yield image, label
 
 
-directional_loss = PRPDirectionalPenalty(3, 2, 5)
-
-
-def directional_loss_metric(y, y_pred, **kwargs):
-    return directional_loss(y_pred)
-
-
-crossentropy = CategoricalCrossentropy(from_logits=False)
-
-
-def crossentropy_metric(y_true, y_pred, **kwargs):
-    return crossentropy(y_true, y_pred)
-
-
-loss_fn = CombinedLoss(
-    CategoricalCrossentropy(from_logits=False),
-    PRPDirectionalPenalty(3, 2, 5),
-    50,
-    0.,
-)
-
-# create run dir
-custom_objects = {'OneHotMeanIoU': OneHotMeanIoU(3),
-                  'directional_loss_metric': directional_loss_metric,
-                  'crossentropy_metric': crossentropy_metric,
-                  'CombinedLoss': loss_fn}
-model = load_model(os.path.join(run_dir, 'saved_model'),
-                   custom_objects=custom_objects,
-                   compile=False)
+model = load_model(os.path.join(run_dir, 'saved_model'))
 
 postproc_func = TwoLayers(3, ordered=True)
 

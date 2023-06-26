@@ -2,14 +2,10 @@ import argparse
 import os
 
 import numpy as np
-from keras.losses import CategoricalCrossentropy
 from skimage.io import imsave
 
-from utils.combined_loss import CombinedLoss
 from utils.data_loading import read_dataset, save_label
-from utils.directional_relations import PRPDirectionalPenalty
 from utils.im_tools import TwoLayers
-from utils.jaccard_loss import OneHotMeanIoU
 from utils.utils import pad_to_multiple_of, load_model
 
 parser = argparse.ArgumentParser()

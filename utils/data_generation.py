@@ -2,8 +2,8 @@ import numpy as np
 import tensorflow as tf
 
 from .crop_selection import select_crop
-from .data_augmentation import (RandomRotation, random_horizontal_flip,
-                                resize_inputs, ColorJittering)
+from .data_augmentation import (RandomRotation,
+                                random_horizontal_flip, resize_inputs)
 
 
 def crop_generator(
@@ -46,6 +46,23 @@ def crop_generator(
                 yield im_crop
 
 
+def get_tf_val_dataset(data):
+    def gen_val():
+        for image, label in data:
+            image = image.astype(np.float32) / 255.0
+            yield image, label
+
+    ds_val = tf.data.Dataset.from_generator(
+        gen_val, output_types=(tf.float32, tf.int32)
+    )
+    ds_val = ds_val.map(
+        lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
+    )
+    ds_val = ds_val.batch(1)
+    ds_val = ds_val.repeat()
+    return ds_val
+
+
 def get_tf_train_dataset(data, params):
     if params["min_scale"] < 0.0:
         scale_range = (1.0 / params["max_scale"], params["max_scale"])
@@ -73,13 +90,6 @@ def get_tf_train_dataset(data, params):
         RandomRotation(params["rotation_angle"]),
         num_parallel_calls=tf.data.AUTOTUNE,
     )
-    if ('color_jitter' in params) and (params['color_jitter']):
-        color_jitter = ColorJittering()
-        ds_train = ds_train.map(
-            lambda x, y: (color_jitter(x), y),
-            num_parallel_calls=tf.data.AUTOTUNE,
-        )
-
     ds_train = ds_train.map(
         lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
     )

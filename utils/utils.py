@@ -1,5 +1,11 @@
 import numpy as np
 
+import keras
+from keras.losses import CategoricalCrossentropy
+from .jaccard_loss import OneHotMeanIoU
+from .combined_loss import CombinedLoss
+from .directional_relations import PRPDirectionalPenalty
+
 
 def crop(im, size, start=(0, 0)):
     top = 0
@@ -53,3 +59,30 @@ def pad_to_multiple_of(image, k):
         return np.pad(image, [(0, pad1), (0, pad2)], mode='reflect'), (pad1, pad2)
     else:
         raise ValueError('image should have rank 2 or 3')
+
+
+def load_model(path, size=3, spread=2, iterations=5):
+    directional_loss = PRPDirectionalPenalty(3, 2, 5)
+
+    def directional_loss_metric(y, y_pred, **kwargs):
+        return directional_loss(y_pred)
+
+    crossentropy = CategoricalCrossentropy(from_logits=False)
+
+    def crossentropy_metric(y_true, y_pred, **kwargs):
+        return crossentropy(y_true, y_pred)
+
+    loss_fn = CombinedLoss(
+        CategoricalCrossentropy(from_logits=False),
+        PRPDirectionalPenalty(3, 2, 5),
+        50,
+        0.,
+    )
+
+    custom_objects = {'OneHotMeanIoU': OneHotMeanIoU(3),
+                      'directional_loss_metric': directional_loss_metric,
+                      'crossentropy_metric': crossentropy_metric,
+                      'CombinedLoss': loss_fn}
+    return keras.models.load_model(path,
+                                   custom_objects=custom_objects,
+                                   compile=False)

@@ -7,6 +7,7 @@ import numpy as np
 import tensorflow as tf
 from keras.callbacks import CSVLogger, LearningRateScheduler
 from keras.losses import CategoricalCrossentropy
+from keras.layers import CenterCrop
 
 from utils.combined_loss import CombinedLoss
 from utils.data_generation import get_tf_train_dataset, get_tf_val_dataset
@@ -19,9 +20,10 @@ from utils.mean_teacher import MeanTeacher
 parser = argparse.ArgumentParser()
 # data dir arguments
 parser.add_argument("pseudo_labels_dir", type=str)
+parser.add_argument("model_path", type=str)
 parser.add_argument("--run_id", type=str, default="")
 parser.add_argument("--data_root", type=str, default="../prp_loreal_data")
-parser.add_argument("--runs_dir", type=str, default="pseudo_labels_runs")
+parser.add_argument("--runs_dir", type=str, default="mean_teacher_runs")
 
 # training arguments
 # WARN: make sure that batch_size_labeled divides batch_size_pseudo
@@ -40,6 +42,7 @@ parser.add_argument("--alpha", type=float, default=0.999)
 parser.add_argument("--noise_value", type=float, default=0.1)
 
 # crop generator arguments
+parser.add_argument("--crop_size_border", type=int, default=192)
 parser.add_argument("--crop_size", type=int, default=192)
 # WARN: you should choose a number of crops_per_image_pseudo such that
 #  num_images_pseudo * crops_per_image_pseudo * batch_size_labeled is a multiple of
@@ -129,29 +132,35 @@ params_labeled = {
     "rotation_angle": args.rotation_angle,
     "crops_per_image": crops_per_image_labeled,
     "batch_size": args.batch_size_labeled,
+    "noise_value": args.noise_value
 }
 params_pseudo = {
     "min_scale": args.min_scale,
     "max_scale": args.max_scale,
-    "crop_size": args.crop_size,
+    "crop_size": args.crop_size_border,
     "rotation_angle": args.rotation_angle,
     "crops_per_image": args.crops_per_image_pseudo,
     "batch_size": args.batch_size_pseudo,
+    "noise_value": args.noise_value
 }
 
+
+# load teacher and student with the weights of the previous model
+teacher = load_model(args.model_path)
+student = load_model(args.model_path)
 
 ds_train_labeled: tf.data.Dataset = get_tf_train_dataset(data_train, params_labeled)
 # remove ground truth information and add runtime computed labels
 ds_train_pseudo: tf.data.Dataset = get_tf_train_dataset(data_pseudo, params_pseudo)
-ds_train_pseudo = ds_train_pseudo.map(lambda x, y: (x, teacher(x)), num_parallel_calls=tf.data.AUTOTUNE)
+center_crop = CenterCrop(args.crop_size, args.crop_size)
+ds_train_pseudo = ds_train_pseudo.map(
+    lambda x, y: (center_crop(x),
+                  tf.one_hot(tf.argmax(center_crop(teacher(x)), -1), 3)),
+    num_parallel_calls=tf.data.AUTOTUNE)
 ds_zip = tf.data.Dataset.zip((ds_train_labeled, ds_train_pseudo))
 ds_train = ds_zip.map(
     lambda a, b: (tf.concat((a[0], b[0]), 0), tf.concat((a[1], b[1]), 0)),
     num_parallel_calls=tf.data.AUTOTUNE,
-)
-ds_train = ds_train.map(
-    lambda x, y: (x + tf.random.normal(x.shape, 0., args.noise_value), y),
-    num_parallel_calls=tf.data.AUTOTUNE
 )
 ds_train = ds_train.prefetch(tf.data.AUTOTUNE)
 
@@ -164,10 +173,6 @@ params_path = os.path.join(run_dir, "params.json")
 args_dict = vars(args)
 with open(params_path, "w") as fp:
     json.dump(args_dict, fp)
-
-# load teacher and student with the weights of the previous model
-teacher = load_model(os.path.join(run_dir, "saved_model"))
-student = load_model(os.path.join(run_dir, "saved_model"))
 
 directional_loss = PRPDirectionalPenalty(
     args.strel_size, args.strel_spread, args.strel_iterations

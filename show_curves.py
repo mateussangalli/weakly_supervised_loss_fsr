@@ -1,9 +1,7 @@
 import os
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-from skimage.io import imread
 
 
 def get_average_df(pattern, runs_dir):

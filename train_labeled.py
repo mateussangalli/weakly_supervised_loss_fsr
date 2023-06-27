@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument("--rotation_angle", type=float, default=np.pi / 8.0)
 
     # crop generator arguments
-    parser.add_argument("--crop_size", type=int, default=192)
+    parser.add_argument("--crop_size", type=int, default=160)
     parser.add_argument("--crops_per_image", type=int, default=16)
     parser.add_argument("--min_scale", type=float, default=-1.0)
     parser.add_argument("--max_scale", type=float, default=1.3)

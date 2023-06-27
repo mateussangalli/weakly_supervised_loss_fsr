@@ -36,7 +36,7 @@ parser.add_argument("--lr_decay_rate", type=float, default=0.03)
 parser.add_argument("--rotation_angle", type=float, default=np.pi/8.)
 
 # crop generator arguments
-parser.add_argument("--crop_size", type=int, default=192)
+parser.add_argument("--crop_size", type=int, default=160)
 # WARN: please choose a number of crops_per_image_pseudo such that
 #  num_images_pseudo * crops_per_image_pseudo * batch_size_labeled is a multiple of
 #  num_images_labeled * batch_size_pseudo

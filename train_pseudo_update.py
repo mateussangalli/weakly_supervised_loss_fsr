@@ -43,7 +43,7 @@ parser.add_argument("--noise_value", type=float, default=0.1)
 
 # crop generator arguments
 parser.add_argument("--crop_size_border", type=int, default=192)
-parser.add_argument("--crop_size", type=int, default=192)
+parser.add_argument("--crop_size", type=int, default=160)
 # WARN: you should choose a number of crops_per_image_pseudo such that
 #  num_images_pseudo * crops_per_image_pseudo * batch_size_labeled is a multiple of
 #  num_images_labeled * batch_size_pseudo

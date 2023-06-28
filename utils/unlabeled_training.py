@@ -9,7 +9,6 @@ class SemiSupModel(tf.keras.Model):
         else:
             self.alpha_schedule = alpha
 
-
     def compile(self, optimizer, loss_1, loss_2, **kwargs):
         # WARN: if you load this model you probably have to call this function again
         # WARN: also when you cal evaluate it will not use any of these losses

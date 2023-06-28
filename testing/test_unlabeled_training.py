@@ -7,6 +7,7 @@ from keras.layers import Dense, Input
 from keras.models import load_model
 
 from utils.unlabeled_training import SemiSupModel
+from utils.unet import SemiSupUNetBuilder
 
 
 class TestUnlabeledTraining(unittest.TestCase):
@@ -62,16 +63,16 @@ class TestUnlabeledTraining(unittest.TestCase):
         ds_u = tf.data.Dataset.from_tensor_slices(inputs_u).batch(8)
         ds = tf.data.Dataset.zip((ds_l, ds_u))
 
-        model.fit(ds, epochs=2, verbose=0)
+        model.fit(ds, epochs=20, verbose=0)
         weights_b4 = model.get_weights()
 
         model.save("test_model")
         custom_objects = {"SemiSupModel": SemiSupModel}
-        model = load_model(
+        model2 = load_model(
             "test_model", custom_objects=custom_objects, compile=False)
         shutil.rmtree("test_model", ignore_errors=False, onerror=None)
 
-        weights_after = model.get_weights()
+        weights_after = model2.get_weights()
 
         for w1, w2 in zip(weights_b4, weights_after):
             dist = np.sum(np.abs(w1 - w2))
@@ -124,6 +125,26 @@ class TestUnlabeledTraining(unittest.TestCase):
         results = np.array(history.history['total_loss'])
         dist = np.sum(np.abs(expected - results))
         self.assertAlmostEqual(dist, 0.)
+
+    def test_unet(self):
+        model = SemiSupUNetBuilder((32, 32, 5), 2, 3, output_channels=3).build()
+        def loss2(pred): return tf.reduce_sum(tf.abs(pred))
+        model.compile('adam', 'mse', loss2, metrics=['mse'])
+
+        inputs_l = tf.random.uniform([20, 32, 32, 5])
+        outputs = tf.random.uniform([20, 32, 32, 3])
+        inputs_u = tf.random.uniform([40, 32, 32, 5])
+        inputs_l_val = tf.random.uniform([20, 32, 32, 5])
+        outputs_val = tf.random.uniform([20, 32, 32, 3])
+
+        ds_l = tf.data.Dataset.from_tensor_slices((inputs_l, outputs)).batch(4)
+        ds_u = tf.data.Dataset.from_tensor_slices(inputs_u).batch(8)
+        ds = tf.data.Dataset.zip((ds_l, ds_u))
+        ds_val = tf.data.Dataset.from_tensor_slices(
+            (inputs_l_val, outputs_val)).batch(4)
+
+        model.fit(ds, epochs=2, validation_data=ds_val)
+        model.evaluate(ds_val)
 
 
 if __name__ == "__main__":

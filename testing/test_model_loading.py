@@ -1,10 +1,7 @@
-import argparse
-import os
 import shutil
 import unittest
 
-import numpy as np
-from keras.losses import CategoricalCrossentropy, categorical_crossentropy
+from keras.losses import CategoricalCrossentropy
 from keras.models import load_model
 from keras.optimizers import Adam
 

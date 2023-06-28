@@ -1,13 +1,9 @@
-from typing import Tuple, Union
-
-import keras.initializers.initializers_v2
-import numpy as np
-import tensorflow as tf
 from keras.layers import (Activation, Add, BatchNormalization, Concatenate,
                           Conv2D, Conv2DTranspose, DepthwiseConv2D, Dropout,
                           Input, Layer, LayerNormalization, MaxPool2D,
                           Multiply, UpSampling2D)
 from keras.models import Model
+from .unlabeled_training import SemiSupModel
 
 
 class UNetBuilder:
@@ -81,16 +77,72 @@ class UNetBuilder:
 
         pool = [feature_maps]
         for i in range(1, self.depth + 1):
-            feature_maps = self.conv_block(feature_maps, self.filters[i], strides=2)
+            feature_maps = self.conv_block(
+                feature_maps, self.filters[i], strides=2)
             if self.drop_rate >= 0.001:
                 feature_maps = Dropout(self.drop_rate)(feature_maps)
             pool.append(feature_maps)
 
         for i in range(1, self.depth + 1):
             skip = pool[-i - 1]
-            feature_maps = self.conv_upsample_block(feature_maps, skip, self.filters[-i - 1])
+            feature_maps = self.conv_upsample_block(
+                feature_maps, skip, self.filters[-i - 1])
 
-        out = Conv2D(self.output_channels, kernel_size=3, padding='same')(feature_maps)
+        out = Conv2D(self.output_channels, kernel_size=3,
+                     padding='same')(feature_maps)
         out = Activation(self.last_layer_activation, name='output_layer')(out)
 
         return Model(inputs, out)
+
+
+class SemiSupUNetBuilder(UNetBuilder):
+    def __init__(self,
+                 input_shape,
+                 filters_start,
+                 depth,
+                 alpha=0.,
+                 output_channels=3,
+                 kernel_size=3,
+                 normalization='none',
+                 batch_norm_momentum=.99,
+                 normalize_all=False,
+                 activation='leaky_relu',
+                 last_layer_activation='softmax',
+                 drop_rate=0):
+        super().__init__(
+            input_shape,
+            filters_start,
+            depth,
+            output_channels,
+            kernel_size,
+            normalization,
+            batch_norm_momentum,
+            normalize_all,
+            activation,
+            last_layer_activation,
+            drop_rate)
+        self.alpha = alpha
+
+    def build(self):
+        inputs = Input(self.input_shape)
+        feature_maps = inputs
+        feature_maps = self.conv_block(feature_maps, self.filters[0])
+
+        pool = [feature_maps]
+        for i in range(1, self.depth + 1):
+            feature_maps = self.conv_block(
+                feature_maps, self.filters[i], strides=2)
+            if self.drop_rate >= 0.001:
+                feature_maps = Dropout(self.drop_rate)(feature_maps)
+            pool.append(feature_maps)
+
+        for i in range(1, self.depth + 1):
+            skip = pool[-i - 1]
+            feature_maps = self.conv_upsample_block(
+                feature_maps, skip, self.filters[-i - 1])
+
+        out = Conv2D(self.output_channels, kernel_size=3,
+                     padding='same')(feature_maps)
+        out = Activation(self.last_layer_activation, name='output_layer')(out)
+
+        return SemiSupModel(inputs, out, alpha=self.alpha)

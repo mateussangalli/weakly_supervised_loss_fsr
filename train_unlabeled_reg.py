@@ -5,8 +5,8 @@ from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
-from keras.callbacks import CSVLogger, LearningRateScheduler
-from keras.losses import CategoricalCrossentropy
+from tensorflow.keras.callbacks import CSVLogger, LearningRateScheduler
+from tensorflow.keras.losses import CategoricalCrossentropy
 
 from utils.data_generation import get_tf_train_dataset
 from utils.data_loading import read_dataset
@@ -204,7 +204,7 @@ def crossentropy_metric(y_true, y_pred, **kwargs):
 loss1 = CategoricalCrossentropy(from_logits=False)
 loss2 = PRPDirectionalPenalty(args.strel_size,
                               args.strel_spread,
-                              args.strel_iterations),
+                              args.strel_iterations)
 
 
 model.compile(

@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from keras.losses import Loss
+from tensorflow.keras.losses import Loss
 
 EPS = 1e-5
 
@@ -63,7 +63,7 @@ class Below(DirectionalRelation):
         super().__init__(distance, spread, iterations, (1, 0))
 
 
-class PRPDirectionalPenalty(Loss):
+class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
     def __init__(self,
                  distance,
                  spread,

@@ -8,6 +8,7 @@ from keras.models import load_model
 
 from utils.unlabeled_training import SemiSupModel
 from utils.unet import SemiSupUNetBuilder
+from utils.directional_relations import PRPDirectionalPenalty
 
 
 class TestUnlabeledTraining(unittest.TestCase):
@@ -140,8 +141,26 @@ class TestUnlabeledTraining(unittest.TestCase):
         ds_l = tf.data.Dataset.from_tensor_slices((inputs_l, outputs)).batch(4)
         ds_u = tf.data.Dataset.from_tensor_slices(inputs_u).batch(8)
         ds = tf.data.Dataset.zip((ds_l, ds_u))
-        ds_val = tf.data.Dataset.from_tensor_slices(
-            (inputs_l_val, outputs_val)).batch(4)
+        ds_val = tf.data.Dataset.from_tensor_slices((inputs_l_val, outputs_val)).batch(4)
+
+        model.fit(ds, epochs=2, validation_data=ds_val, verbose=0)
+        model.evaluate(ds_val)
+
+    def test_directional_loss(self):
+        model = SemiSupUNetBuilder((32, 32, 5), 2, 3, output_channels=3).build()
+        loss2 = PRPDirectionalPenalty(3, 2, 5)
+        model.compile('adam', 'mse', loss2, metrics=['mse'])
+
+        inputs_l = tf.random.uniform([20, 32, 32, 5])
+        outputs = tf.random.uniform([20, 32, 32, 3])
+        inputs_u = tf.random.uniform([40, 32, 32, 5])
+        inputs_l_val = tf.random.uniform([20, 32, 32, 5])
+        outputs_val = tf.random.uniform([20, 32, 32, 3])
+
+        ds_l = tf.data.Dataset.from_tensor_slices((inputs_l, outputs)).batch(4)
+        ds_u = tf.data.Dataset.from_tensor_slices(inputs_u).batch(8)
+        ds = tf.data.Dataset.zip((ds_l, ds_u))
+        ds_val = tf.data.Dataset.from_tensor_slices((inputs_l_val, outputs_val)).batch(4)
 
         model.fit(ds, epochs=2, validation_data=ds_val)
         model.evaluate(ds_val)

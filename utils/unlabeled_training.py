@@ -15,7 +15,7 @@ class SemiSupModel(tf.keras.Model):
         super(SemiSupModel, self).compile(**kwargs)
         self.optimizer = tf.keras.optimizers.get(optimizer)
         self.loss_1 = tf.keras.losses.get(loss_1)
-        self.loss_2 = tf.keras.losses.get(loss_2)
+        self.loss_2 = tf.keras.regularizers.get(loss_2)
 
     def train_step(self, data):
         (x_l, y), x_u = data

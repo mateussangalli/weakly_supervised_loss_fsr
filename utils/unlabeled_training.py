@@ -1,24 +1,45 @@
 import tensorflow as tf
 
-# TODO: almost everything
-class UnlabeledTrain:
-    def __init__(self, model, loss_fn, reg_fn, optimizer, weight_max=1., weight_epochs=50):
-        self.model = model
-        self.loss_fn = loss_fn
-        self.reg_fn = reg_fn
+
+class SemiSupModel(tf.keras.Model):
+    def __init__(self, *args, alpha_schedule, **kwargs):
+        super(SemiSupModel, self).__init__(*args, **kwargs)
+        self.alpha_schedule = alpha_schedule
+
+    def compile(self, optimizer, loss_1, loss_2, **kwargs):
+        super(SemiSupModel, self).compile(**kwargs)
         self.optimizer = optimizer
-        self.weight = 0.
+        self.loss_1 = loss_1
+        self.loss_2 = loss_2
 
     def train_step(self, data):
-        x1, y1, x2 = data
-        # Run forward pass.
+        x_l, y, x_u = data
+
         with tf.GradientTape() as tape:
-            y1_pred = self.model(x1, training=True)
-            y2_pred = self.model(x2, training=True)
-            loss1 = self.loss_fn(y1, y1_pred) + \
-                self.reg_fn(y1_pred) * self.weight
-            loss2 = self.reg_fn(y2_pred) * self.weight
-            loss = loss1 + loss2
-        # Run backwards pass.
-        self.optimizer.minimize(
-            loss, self.model.trainable_variables, tape=tape)
+            # Forward pass on labeled data
+            y_pred = self(x_l, training=True)
+            loss_1_value = self.loss_1(y, y_pred)
+
+            # Forward pass on unlabeled data
+            y_u_pred = self(x_u, training=True)
+            loss_2_value = self.loss_2(x_u, y_u_pred)
+
+            # Compute total loss with weight alpha(epoch)
+            alpha = self.alpha_schedule(
+                tf.keras.backend.get_value(self.optimizer.iterations))
+            total_loss = loss_1_value + alpha * loss_2_value
+
+        # Compute gradients and update weights
+        trainable_vars = self.trainable_variables
+        gradients = tape.gradient(total_loss, trainable_vars)
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+
+        # Update metrics
+        self.compiled_metrics.update_state(y, y_pred)
+
+        # Return a dict of metrics for monitoring
+        results = {m.name: m.result() for m in self.metrics}
+        results['loss_1'] = loss_1_value
+        results['loss_2'] = loss_2_value
+        results['total_loss'] = total_loss
+        return results

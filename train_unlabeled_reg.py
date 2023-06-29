@@ -24,13 +24,15 @@ parser.add_argument("--runs_dir", type=str, default="no_pseudo_runs")
 # training arguments
 # WARN: make sure that batch_size_labeled divides batch_size_unlabeled
 parser.add_argument("--num_images_labeled", type=int, default=3)
-parser.add_argument("--batch_size_labeled", type=int, default=16)
-parser.add_argument("--batch_size_unlabeled", type=int, default=48)
+parser.add_argument("--batch_size_labeled", type=int, default=32)
+parser.add_argument("--batch_size_unlabeled", type=int, default=96)
 parser.add_argument("--epochs", type=int, default=30)
-parser.add_argument("--starting_lr", type=float, default=1e-4)
+parser.add_argument("--starting_lr", type=float, default=1e-3)
+parser.add_argument("--warmup_epochs", type=int, default=20)
+parser.add_argument("--lr_decay_rate", type=float, default=0.955)
+parser.add_argument("--min_lr", type=float, default=1e-7)
 parser.add_argument("--val_freq", type=int, default=1)
 parser.add_argument("--weight_decay", type=float, default=1e-4)
-parser.add_argument("--lr_decay_rate", type=float, default=0.03)
 parser.add_argument("--rotation_angle", type=float, default=np.pi/8.)
 
 # crop generator arguments
@@ -45,7 +47,7 @@ parser.add_argument("--max_scale", type=float, default=1.3)
 # architecture arguments
 parser.add_argument("--filters_start", type=int, default=8)
 parser.add_argument("--depth", type=int, default=4)
-parser.add_argument("--bn_momentum", type=float, default=0.85)
+parser.add_argument("--bn_momentum", type=float, default=0.9)
 
 # loss function arguments
 parser.add_argument("--max_weight", type=float, default=1.0)
@@ -221,8 +223,8 @@ model.compile(
 
 
 def schedule(epoch, lr):
-    if epoch > 0:
-        return lr * tf.exp(-args.lr_decay_rate)
+    if epoch > args.warmup_epochs:
+        return max(lr * args.lr_decay_rate, args.min_lr)
     return lr
 
 

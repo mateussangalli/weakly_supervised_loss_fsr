@@ -77,8 +77,8 @@ def random_crop_pad(im, gt, size):
         gt_out: cropped/padded square from label
 
     """
-    im_tmp, gt_tmp = random_crop(im, gt, size)
-    return pad(im_tmp, gt_tmp, size)
+    im_tmp, gt_tmp = pad(im, gt, size)
+    return random_crop(im_tmp, gt_tmp, size)
 
 
 def select_crop(im, gt, size):

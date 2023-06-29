@@ -1,4 +1,5 @@
 import tensorflow as tf
+import collections
 
 
 class SemiSupModel(tf.keras.Model):
@@ -8,12 +9,15 @@ class SemiSupModel(tf.keras.Model):
         Compiling the loss function and optimizer are not supported.
         sample_weights are not supported
     """
-    def __init__(self, *args, alpha=0., **kwargs):
+    def __init__(self, *args, alpha=0., num_unlabeled_losses=1, **kwargs):
         super(SemiSupModel, self).__init__(*args, **kwargs)
         if isinstance(alpha, float):
-            self.alpha_schedule = lambda _: alpha
+            self.alpha_schedule = [lambda _: alpha] * num_unlabeled_losses
         else:
-            self.alpha_schedule = alpha
+            if isinstance(alpha, collections.Iterable):
+                self.alpha_schedule = alpha
+            else:
+                self.alpha_schedule = [alpha] * num_unlabeled_losses
 
     def compile(self, optimizer, loss_labeled, loss_unlabeled, **kwargs):
         # WARN: if you load this model you probably have to call this function again
@@ -21,7 +25,10 @@ class SemiSupModel(tf.keras.Model):
         super(SemiSupModel, self).compile(**kwargs)
         self.optimizer = tf.keras.optimizers.get(optimizer)
         self.loss_labeled = tf.keras.losses.get(loss_labeled)
-        self.loss_unlabeled = tf.keras.regularizers.get(loss_unlabeled)
+        if isinstance(loss_unlabeled, collections.Iterable):
+            self.loss_unlabeled = [tf.keras.regularizers.get(loss_fn) for loss_fn in loss_unlabeled]
+        else:
+            self.loss_unlabeled = [tf.keras.regularizers.get(loss_unlabeled)]
 
     def train_step(self, data):
         (x_l, y), x_u = data
@@ -33,11 +40,13 @@ class SemiSupModel(tf.keras.Model):
 
             # Forward pass on unlabeled data
             y_u_pred = self(x_u, training=True)
-            loss_unlab_value = self.loss_unlabeled(y_u_pred)
+            loss_unlab_value = 0.
+            for alpha_schd, loss_fn in zip(self.alpha_schedule, self.loss_unlabeled):
+                alpha = alpha_schd(self.optimizer.iterations)
+                loss_unlab_value += alpha * loss_fn(y_u_pred)
 
             # Compute total loss with weight alpha(epoch)
-            alpha = self.alpha_schedule(self.optimizer.iterations)
-            total_loss = loss_lab_value + alpha * loss_unlab_value
+            total_loss = loss_lab_value + loss_unlab_value
 
         # Compute gradients and update weights
         trainable_vars = self.trainable_variables

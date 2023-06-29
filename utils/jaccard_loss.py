@@ -31,26 +31,28 @@ class Jaccard2Loss(tf.keras.losses.Loss):
         return 1. - jaccard2_coef(y_true, y_pred, self.smooth)
 
 
-@tf.function
-def jaccard_loss_mean(y_true, y_pred, smooth=1):
-    """
-      Mean Jaccard Loss per classes.
-      Jaccard = (|X & Y|)/ (|X|+ |Y| - |X & Y|)
-              = sum(|A*B|)/(sum(|A|)+sum(|B|)-sum(|A*B|))
+def jaccard_loss_mean_wrapper(smooth=1.):
+    @tf.function
+    def jaccard_loss_mean(y_true, y_pred):
+        """
+          Mean Jaccard Loss per classes.
+          Jaccard = (|X & Y|)/ (|X|+ |Y| - |X & Y|)
+                  = sum(|A*B|)/(sum(|A|)+sum(|B|)-sum(|A*B|))
 
-      The jaccard distance loss is useful for unbalanced datasets. This has been
-      shifted so it converges on 0 and is smoothed to avoid exploding or
-      disapearing gradient.
+          The jaccard distance loss is useful for unbalanced datasets. This has been
+          shifted so it converges on 0 and is smoothed to avoid exploding or
+          disapearing gradient.
 
-      Ref: https://en.wikipedia.org/wiki/Jaccard_index
-      """
-    intersection = y_true * y_pred
-    union = y_true * y_true + y_pred * y_pred - intersection
-    union = tf.reduce_sum(union, axis=[1, 2])
-    intersection = tf.reduce_sum(intersection, axis=[1, 2])
-    jac = (intersection + smooth) / (union + smooth)
-    jac = tf.reduce_mean(jac, axis=1)
-    return 1 - jac
+          Ref: https://en.wikipedia.org/wiki/Jaccard_index
+          """
+        intersection = y_true * y_pred
+        union = y_true * y_true + y_pred * y_pred - intersection
+        union = tf.reduce_sum(union, axis=[1, 2])
+        intersection = tf.reduce_sum(intersection, axis=[1, 2])
+        jac = (intersection + smooth) / (union + smooth)
+        jac = tf.reduce_mean(jac, axis=1)
+        return tf.reduce_mean(1 - jac)
+    return jaccard_loss_mean
 
 
 class OneHotMeanIoU(MeanIoU):

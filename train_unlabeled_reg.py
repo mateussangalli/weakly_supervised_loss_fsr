@@ -12,8 +12,12 @@ from utils.data_generation import get_tf_train_dataset
 from utils.data_loading import read_dataset
 from utils.directional_relations import PRPDirectionalPenalty
 from utils.jaccard_loss import OneHotMeanIoU
+from utils.size_regularization import QuadraticPenaltyHeight
 from utils.unet import SemiSupUNetBuilder
 from utils.utils import crop_to_multiple_of
+
+SC = 0
+LED = 2
 
 parser = argparse.ArgumentParser()
 # data dir arguments
@@ -55,6 +59,10 @@ parser.add_argument("--increase_epochs", type=int, default=10)
 parser.add_argument("--strel_size", type=int, default=3)
 parser.add_argument("--strel_spread", type=int, default=2)
 parser.add_argument("--strel_iterations", type=int, default=10)
+
+parser.add_argument("--hmax_sc", type=float, default=50.)
+parser.add_argument("--hmax_led", type=float, default=80.)
+parser.add_argument("--height_reg_weight", type=float, default=0.1)
 
 # verbose
 parser.add_argument("--verbose", type=int, default=2)
@@ -139,8 +147,10 @@ params_unlabeled = {
     "batch_size": args.batch_size_unlabeled
 }
 
-ds_train_labeled: tf.data.Dataset = get_tf_train_dataset(data_train, params_labeled)
-ds_train_unlabeled: tf.data.Dataset = get_tf_train_dataset(data_unlabeled, params_unlabeled)
+ds_train_labeled: tf.data.Dataset = get_tf_train_dataset(
+    data_train, params_labeled)
+ds_train_unlabeled: tf.data.Dataset = get_tf_train_dataset(
+    data_unlabeled, params_unlabeled)
 ds_train_unlabeled = ds_train_unlabeled.map(
     lambda x, y: x, num_parallel_calls=tf.data.AUTOTUNE)
 ds_zip = tf.data.Dataset.zip((ds_train_labeled, ds_train_unlabeled))
@@ -173,9 +183,21 @@ with open(params_path, 'w') as fp:
 increase_ratio = args.max_weight / float(args.increase_epochs)
 
 
-def alpha_schedule(t):
+def alpha_schedule1(t):
     return tf.minimum(tf.cast(t, tf.float32) * increase_ratio, args.max_weight)
 
+
+def alpha_schedule2(t):
+    out = tf.minimum(tf.cast(t, tf.float32) * increase_ratio, args.max_weight)
+    return args.height_reg_weight * out
+
+
+def alpha_schedule3(t):
+    out = tf.minimum(tf.cast(t, tf.float32) * increase_ratio, args.max_weight)
+    return args.height_reg_weight * out
+
+
+alpha_schedule = [alpha_schedule1, alpha_schedule2, alpha_schedule3]
 
 # create model
 model = SemiSupUNetBuilder(
@@ -203,17 +225,19 @@ def crossentropy_metric(y_true, y_pred, **kwargs):
     return crossentropy(y_true, y_pred)
 
 
-loss1 = CategoricalCrossentropy(from_logits=False)
-loss2 = PRPDirectionalPenalty(args.strel_size,
-                              args.strel_spread,
-                              args.strel_iterations)
+loss_labeled = CategoricalCrossentropy(from_logits=False)
+loss_unlab1 = PRPDirectionalPenalty(args.strel_size,
+                                    args.strel_spread,
+                                    args.strel_iterations)
+loss_unlab2 = QuadraticPenaltyHeight(SC, args.hmax_sc)
+loss_unlab3 = QuadraticPenaltyHeight(LED, args.hmax_led)
 
 
 model.compile(
     tf.keras.optimizers.experimental.Adam(
         args.starting_lr, weight_decay=args.weight_decay),
-    loss1,
-    loss2,
+    loss_labeled,
+    loss_unlab1,
     metrics=[
         OneHotMeanIoU(3),
         crossentropy_metric,
@@ -235,7 +259,7 @@ model.fit(
     validation_steps=len(data_val),
     epochs=args.epochs,
     callbacks=[CSVLogger(os.path.join(run_dir, 'training_history.csv')),
-               LearningRateScheduler(schedule)],
+               LearningRateScheduler(lr_schedule)],
     verbose=args.verbose,
     validation_freq=args.val_freq
 )

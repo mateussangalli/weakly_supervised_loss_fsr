@@ -165,6 +165,39 @@ class TestUnlabeledTraining(unittest.TestCase):
         model.fit(ds, epochs=2, validation_data=ds_val)
         model.evaluate(ds_val)
 
+    def test_multiple_losses(self):
+        def alpha_schedule1(t):
+            return tf.cast(t // 5, tf.float32)
+
+        def alpha_schedule2(t):
+            return .5 * tf.cast(t // 5, tf.float32)
+
+        def loss_l(y, y_pred): return tf.reduce_sum(tf.abs(y_pred + y)) * 1e-10
+        def loss_u1(y_pred): return tf.reduce_sum(tf.abs(y_pred)) * 1e-10 + 1.
+        def loss_u2(y_pred): return tf.reduce_sum(tf.abs(y_pred)) * 1e-10 + 1.
+
+        input_layer = Input((5,))
+        out_layer = Dense(10)(input_layer)
+        model = SemiSupModel(input_layer,
+                             out_layer,
+                             alpha=[alpha_schedule1, alpha_schedule2],
+                             num_unlabeled_losses=2)
+        model.compile('adam', loss_l, [loss_u1, loss_u2])
+
+        inputs_l = tf.random.uniform([20, 5])
+        outputs = tf.random.uniform([20, 10])
+        inputs_u = tf.random.uniform([40, 5])
+
+        ds_l = tf.data.Dataset.from_tensor_slices((inputs_l, outputs)).batch(4)
+        ds_u = tf.data.Dataset.from_tensor_slices(inputs_u).batch(8)
+        ds = tf.data.Dataset.zip((ds_l, ds_u))
+
+        history = model.fit(ds, epochs=15, verbose=0)
+        expected = 1.5 * np.arange(15).astype(np.float32)
+        results = np.array(history.history['total_loss'])
+        dist = np.sum(np.abs(expected - results))
+        self.assertAlmostEqual(dist, 0.)
+
 
 if __name__ == "__main__":
     unittest.main()

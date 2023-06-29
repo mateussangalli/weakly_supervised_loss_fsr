@@ -212,11 +212,13 @@ model = SemiSupUNetBuilder(
 directional_loss = PRPDirectionalPenalty(args.strel_size,
                                          args.strel_spread,
                                          args.strel_iterations)
+height_penalty_sc = QuadraticPenaltyHeight(SC, args.hmax_sc)
+height_penalty_led = QuadraticPenaltyHeight(LED, args.hmax_led)
 
 
-def directional_loss_metric(y, y_pred, **kwargs):
-    return directional_loss(y_pred)
-
+def directional_loss_metric(y, y_pred, **kwargs): return directional_loss(y_pred)
+def height_sc_metric(y, y_pred, **kwargs): return height_penalty_sc(y_pred)
+def height_led_metric(y, y_pred, **kwargs): return height_penalty_led(y_pred)
 
 crossentropy = CategoricalCrossentropy(from_logits=False)
 
@@ -233,6 +235,7 @@ loss_unlab2 = QuadraticPenaltyHeight(SC, args.hmax_sc)
 loss_unlab3 = QuadraticPenaltyHeight(LED, args.hmax_led)
 
 
+
 model.compile(
     tf.keras.optimizers.experimental.Adam(
         args.starting_lr, weight_decay=args.weight_decay),
@@ -242,6 +245,8 @@ model.compile(
         OneHotMeanIoU(3),
         crossentropy_metric,
         directional_loss_metric,
+        height_sc_metric,
+        height_led_metric
     ],
 )
 

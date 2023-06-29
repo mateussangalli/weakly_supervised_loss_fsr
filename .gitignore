@@ -165,3 +165,5 @@ pseudo_labels_runs
 mean_teacher_runs/
 pseudo_iterate_runs
 no_pseudo_runs
+no_pseudo_search
+no_pseudo_search_size_reg

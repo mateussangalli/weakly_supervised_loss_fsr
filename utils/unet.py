@@ -145,7 +145,9 @@ class SemiSupUNetBuilder(UNetBuilder):
                      padding='same')(feature_maps)
         out = Activation(self.last_layer_activation, name='output_layer')(out)
 
-        return SemiSupModel(inputs, out, alpha=self.alpha)
+        return SemiSupModel(inputs, out,
+                            alpha=self.alpha,
+                            num_unlabeled_losses=len(self.alpha))
 
 
 class SemiSupPseudoUNetBuilder(UNetBuilder):

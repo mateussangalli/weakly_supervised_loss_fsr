@@ -246,7 +246,7 @@ model.compile(
 )
 
 
-def schedule(epoch, lr):
+def lr_schedule(epoch, lr):
     if epoch > args.warmup_epochs:
         return max(lr * args.lr_decay_rate, args.min_lr)
     return lr

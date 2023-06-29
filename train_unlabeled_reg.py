@@ -11,7 +11,7 @@ from tensorflow.keras.losses import CategoricalCrossentropy
 from utils.data_generation import get_tf_train_dataset
 from utils.data_loading import read_dataset
 from utils.directional_relations import PRPDirectionalPenalty
-from utils.jaccard_loss import OneHotMeanIoU
+from utils.jaccard_loss import OneHotMeanIoU, jaccard_loss_mean_wrapper
 from utils.size_regularization import QuadraticPenaltyHeight
 from utils.unet import SemiSupUNetBuilder
 from utils.utils import crop_to_multiple_of
@@ -38,6 +38,7 @@ parser.add_argument("--min_lr", type=float, default=1e-7)
 parser.add_argument("--val_freq", type=int, default=1)
 parser.add_argument("--weight_decay", type=float, default=1e-4)
 parser.add_argument("--rotation_angle", type=float, default=np.pi/8.)
+parser.add_argument("--labeled_loss_fn", choices=['iou', 'crossentropy'], default='crossentropy')
 
 # crop generator arguments
 parser.add_argument("--crop_size", type=int, default=160)
@@ -61,8 +62,8 @@ parser.add_argument("--strel_spread", type=int, default=2)
 parser.add_argument("--strel_iterations", type=int, default=10)
 
 parser.add_argument("--hmax_sc", type=float, default=50.)
-parser.add_argument("--hmax_led", type=float, default=130.)
-parser.add_argument("--height_reg_weight", type=float, default=0.1)
+parser.add_argument("--hmax_led", type=float, default=90.)
+parser.add_argument("--height_reg_weight", type=float, default=0.001)
 
 # verbose
 parser.add_argument("--verbose", type=int, default=2)
@@ -123,8 +124,10 @@ steps_per_epoch_unlabeled = int(
     np.ceil(samples_per_epoch_unlabeled / args.batch_size_unlabeled))
 # verify that everything is at it should be
 if steps_per_epoch_unlabeled != steps_per_epoch_labeled:
-    msg1 = f'labeled: \n crops/image: {crops_per_image_labeled}, num images: {len(data_train)}, batch_size: {args.batch_size_labeled}'
-    msg2 = f'unlabeled: \n crops/image: {args.crops_per_image_unlabeled}, num images: {len(data_unlabeled)}, batch_size: {args.batch_size_unlabeled}'
+    msg1 = f'labeled: \n crops/image: {crops_per_image_labeled},' + \
+        'num images: {len(data_train)}, batch_size: {args.batch_size_labeled}'
+    msg2 = f'unlabeled: \n crops/image: {args.crops_per_image_unlabeled},' + \
+        ' num images: {len(data_unlabeled)}, batch_size: {args.batch_size_unlabeled}'
     raise ValueError(
         'number of steps is wrong! \n' + msg1 + '\n' + msg2
     )
@@ -220,20 +223,17 @@ def directional_loss_metric(y, y_pred, **kwargs): return directional_loss(y_pred
 def height_sc_metric(y, y_pred, **kwargs): return height_penalty_sc(y_pred)
 def height_led_metric(y, y_pred, **kwargs): return height_penalty_led(y_pred)
 
-crossentropy = CategoricalCrossentropy(from_logits=False)
 
+if args.labeled_loss_fn == 'iou':
+    loss_labeled = jaccard_loss_mean_wrapper()
+else:
+    loss_labeled = CategoricalCrossentropy(from_logits=False)
 
-def crossentropy_metric(y_true, y_pred, **kwargs):
-    return crossentropy(y_true, y_pred)
-
-
-loss_labeled = CategoricalCrossentropy(from_logits=False)
 loss_unlab1 = PRPDirectionalPenalty(args.strel_size,
                                     args.strel_spread,
                                     args.strel_iterations)
 loss_unlab2 = QuadraticPenaltyHeight(SC, args.hmax_sc)
 loss_unlab3 = QuadraticPenaltyHeight(LED, args.hmax_led)
-
 
 
 model.compile(
@@ -243,7 +243,6 @@ model.compile(
     loss_unlab1,
     metrics=[
         OneHotMeanIoU(3),
-        crossentropy_metric,
         directional_loss_metric,
         height_sc_metric,
         height_led_metric

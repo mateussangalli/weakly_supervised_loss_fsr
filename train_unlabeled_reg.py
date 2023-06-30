@@ -84,9 +84,6 @@ else:
 run_dir = os.path.join(args.runs_dir, run_name)
 
 # load data
-train_images = os.listdir(os.path.join(args.data_root, "train", "images"))
-
-
 data_train = read_dataset(args.data_root, "train", LABELED_IMAGES[args.num_images_labeled])
 data_unlabeled = read_dataset(args.data_root, "train")
 # just to be sure...

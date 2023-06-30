@@ -1,6 +1,5 @@
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.losses import Loss
 
 EPS = 1e-5
 
@@ -88,17 +87,22 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
         prob_sc = tf.expand_dims(inputs[..., self.sc_class], -1)
         prob_le = tf.expand_dims(inputs[..., self.le_class], -1)
 
-        above_bg = self.above(prob_bg)
-        below_bg = self.below(prob_bg)
+        # below_sc = self.below(prob_sc)
         above_sc = self.above(prob_sc)
+        below_le = self.below(prob_le)
+        # above_le = self.above(prob_le)
+        below_bg = self.below(prob_bg)
+        above_bg = self.above(prob_bg)
 
         sc_above_bg = prob_sc * above_bg
         le_below_bg = prob_le * below_bg
         le_above_sc = prob_le * above_sc
+        sc_below_le = prob_sc * below_le
 
         penalty = tf.reduce_mean(sc_above_bg) + \
             tf.reduce_mean(le_below_bg) + \
-            tf.reduce_mean(le_above_sc)
+            tf.reduce_mean(le_above_sc) + \
+            tf.reduce_mean(sc_below_le)
 
         return penalty
 

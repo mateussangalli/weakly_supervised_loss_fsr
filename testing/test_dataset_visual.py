@@ -1,6 +1,4 @@
 import argparse
-import os
-from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
@@ -26,6 +24,9 @@ parser.add_argument("--num_images_labeled", type=int, default=3)
 parser.add_argument("--batch_size_labeled", type=int, default=32)
 parser.add_argument("--batch_size_unlabeled", type=int, default=96)
 parser.add_argument("--rotation_angle", type=float, default=np.pi/8.)
+parser.add_argument("--hue_jitter", type=float, default=0.)
+parser.add_argument("--sat_jitter", type=float, default=0.)
+parser.add_argument("--val_jitter", type=float, default=0.)
 
 # crop generator arguments
 parser.add_argument("--crop_size", type=int, default=160)
@@ -38,28 +39,17 @@ parser.add_argument("--max_scale", type=float, default=1.3)
 
 args = parser.parse_args()
 
-if args.min_scale < 0.0:
-    scale_range = (1.0 / args.max_scale, args.max_scale)
-else:
-    scale_range = (args.min_scale, args.max_scale)
-
-if args.run_id == '':
-    weight_str = f'{args.max_weight:.4f}'.replace('.', 'p')
-    run_name = f'weight{weight_str}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
-else:
-    run_name = args.run_id
-run_dir = os.path.join(args.runs_dir, run_name)
 
 # load data
-data_train = read_dataset(args.data_root, "train", LABELED_IMAGES[args.num_images_labeled])
+data_train = read_dataset(args.data_root, "train", LABELED_IMAGES[:args.num_images_labeled])
 data_unlabeled = read_dataset(args.data_root, "train")
 # just to be sure...
 data_unlabeled = [(x, np.zeros_like(y)) for x, y in data_unlabeled]
 
 data_val = read_dataset(args.data_root, "val", LABELED_IMAGES_VAL)
 data_val = [
-    (crop_to_multiple_of(im, 2**args.depth),
-     crop_to_multiple_of(gt, 2**args.depth)) for (im, gt) in data_val
+    (crop_to_multiple_of(im, 32),
+     crop_to_multiple_of(gt, 32)) for (im, gt) in data_val
 ]
 
 
@@ -93,7 +83,10 @@ params_labeled = {
     "crop_size": args.crop_size,
     "rotation_angle": args.rotation_angle,
     "crops_per_image": crops_per_image_labeled,
-    "batch_size": args.batch_size_labeled
+    "batch_size": args.batch_size_labeled,
+    "hue_jitter": args.hue_jitter,
+    "sat_jitter": args.sat_jitter,
+    "val_jitter": args.val_jitter,
 }
 params_unlabeled = {
     "min_scale": args.min_scale,
@@ -101,7 +94,10 @@ params_unlabeled = {
     "crop_size": args.crop_size,
     "rotation_angle": args.rotation_angle,
     "crops_per_image": args.crops_per_image_unlabeled,
-    "batch_size": args.batch_size_unlabeled
+    "batch_size": args.batch_size_unlabeled,
+    "hue_jitter": args.hue_jitter,
+    "sat_jitter": args.sat_jitter,
+    "val_jitter": args.val_jitter,
 }
 
 # load labeled dataset and take the right amount of batches per epoch
@@ -117,9 +113,13 @@ ds_zip = tf.data.Dataset.zip((ds_train_labeled, ds_train_unlabeled))
 ds_train = ds_zip.prefetch(tf.data.AUTOTUNE)
 
 for (im_l, gt), im_u in ds_train:
-    plt.suplot(131)
-    plt.imshow(im_l)
-    plt.suplot(132)
-    plt.imshow(gt)
-    plt.suplot(133)
-    plt.imshow(im_u)
+    plt.subplot(131)
+    plt.title('labeled')
+    plt.imshow(im_l[0, ...])
+    plt.subplot(132)
+    plt.title('ground truth')
+    plt.imshow(gt[0, ...])
+    plt.subplot(133)
+    plt.title('unlabeled')
+    plt.imshow(im_u[0, ...])
+    plt.show()

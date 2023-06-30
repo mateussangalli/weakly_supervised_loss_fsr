@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 from .crop_selection import select_crop
-from .data_augmentation import (RandomRotation,
+from .data_augmentation import (RandomRotation, ColorJitter,
                                 random_horizontal_flip, resize_inputs)
 
 
@@ -90,6 +90,13 @@ def get_tf_train_dataset(data, params):
         RandomRotation(params["rotation_angle"]),
         num_parallel_calls=tf.data.AUTOTUNE,
     )
+    if "hue_jitter" in params and "sat_jitter" in params and "val_jitter" in params:
+        color_jitter = ColorJitter(
+            params["hue_jitter"], params["sat_jitter"], params["val_jitter"])
+        ds_train = ds_train.map(
+            lambda x, y: (color_jitter(x), y),
+            num_parallel_calls=tf.data.AUTOTUNE,
+        )
     ds_train = ds_train.map(
         lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
     )

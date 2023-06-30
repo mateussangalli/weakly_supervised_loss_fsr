@@ -434,16 +434,16 @@ def crop_to_multiple_of_preproc(image, label, k=32):
     return image_out, label_out
 
 
-class ColorJittering:
+class ColorJitter:
     def __init__(self, hue=0.1, saturation=0.1, brightness=0.1):
         self.hue = hue
         self.saturation = saturation
         self.brightness = brightness
         self.scaling = tf.constant([hue, saturation, brightness], tf.float32)
-        self.scaling = tf.reshape(self.scaling, (1, 1, 1, 3))
+        self.scaling = tf.reshape(self.scaling, (1, 1, 3))
 
     def __call__(self, im):
         im = tf.image.rgb_to_hsv(im)
-        offset = tf.random.uniform((1, 1, 1, 3), -1., 1.) * self.scalings
+        offset = tf.random.uniform((1, 1, 3), -1., 1.) * self.scaling
         im = im + offset
         return tf.image.hsv_to_rgb(im)

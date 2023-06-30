@@ -49,6 +49,9 @@ parser.add_argument("--crop_size", type=int, default=160)
 parser.add_argument("--crops_per_image_unlabeled", type=int, default=3)
 parser.add_argument("--min_scale", type=float, default=-1.0)
 parser.add_argument("--max_scale", type=float, default=1.3)
+parser.add_argument("--hue_jitter", type=float, default=0.)
+parser.add_argument("--sat_jitter", type=float, default=0.)
+parser.add_argument("--val_jitter", type=float, default=0.)
 
 # architecture arguments
 parser.add_argument("--filters_start", type=int, default=8)
@@ -84,7 +87,7 @@ else:
 run_dir = os.path.join(args.runs_dir, run_name)
 
 # load data
-data_train = read_dataset(args.data_root, "train", LABELED_IMAGES[args.num_images_labeled])
+data_train = read_dataset(args.data_root, "train", LABELED_IMAGES[:args.num_images_labeled])
 data_unlabeled = read_dataset(args.data_root, "train")
 # just to be sure...
 data_unlabeled = [(x, np.zeros_like(y)) for x, y in data_unlabeled]
@@ -94,6 +97,7 @@ data_val = [
     (crop_to_multiple_of(im, 2**args.depth),
      crop_to_multiple_of(gt, 2**args.depth)) for (im, gt) in data_val
 ]
+
 
 # NOTE: we want the same number of labeled and unlabeled data batches
 # NOTE: the number of batches is ceil(len(data) * crops_per_image / batch_size)
@@ -106,20 +110,18 @@ crops_per_image_labeled //= len(data_train) * args.batch_size_unlabeled
 samples_per_epoch_label = crops_per_image_labeled * len(data_train)
 samples_per_epoch_unlabeled = args.crops_per_image_unlabeled * \
     len(data_unlabeled)
-steps_per_epoch_labeled = int(
-    np.ceil(samples_per_epoch_label / args.batch_size_labeled))
-steps_per_epoch_unlabeled = int(
-    np.ceil(samples_per_epoch_unlabeled / args.batch_size_unlabeled))
+steps_per_epoch_labeled = int(np.ceil(samples_per_epoch_label / args.batch_size_labeled))
+steps_per_epoch_unlabeled = int(np.ceil(samples_per_epoch_unlabeled / args.batch_size_unlabeled))
 # verify that everything is at it should be
-if steps_per_epoch_unlabeled != steps_per_epoch_labeled:
-    msg1 = f'labeled: \n crops/image: {crops_per_image_labeled},' + \
-        'num images: {len(data_train)}, batch_size: {args.batch_size_labeled}'
-    msg2 = f'unlabeled: \n crops/image: {args.crops_per_image_unlabeled},' + \
-        ' num images: {len(data_unlabeled)}, batch_size: {args.batch_size_unlabeled}'
-    raise ValueError(
-        'number of steps is wrong! \n' + msg1 + '\n' + msg2
-    )
-steps_per_epoch = steps_per_epoch_unlabeled
+# if steps_per_epoch_unlabeled != steps_per_epoch_labeled:
+#     msg1 = f'labeled: \n crops/image: {crops_per_image_labeled},' + \
+#         'num images: {len(data_train)}, batch_size: {args.batch_size_labeled}'
+#     msg2 = f'unlabeled: \n crops/image: {args.crops_per_image_unlabeled},' + \
+#         ' num images: {len(data_unlabeled)}, batch_size: {args.batch_size_unlabeled}'
+#     raise ValueError(
+#         'number of steps is wrong! \n' + msg1 + '\n' + msg2
+#     )
+steps_per_epoch = min(steps_per_epoch_unlabeled, steps_per_epoch_labeled)
 
 params_labeled = {
     "min_scale": args.min_scale,
@@ -127,7 +129,10 @@ params_labeled = {
     "crop_size": args.crop_size,
     "rotation_angle": args.rotation_angle,
     "crops_per_image": crops_per_image_labeled,
-    "batch_size": args.batch_size_labeled
+    "batch_size": args.batch_size_labeled,
+    "hue_jitter": args.hue_jitter,
+    "sat_jitter": args.sat_jitter,
+    "val_jitter": args.val_jitter,
 }
 params_unlabeled = {
     "min_scale": args.min_scale,
@@ -135,15 +140,21 @@ params_unlabeled = {
     "crop_size": args.crop_size,
     "rotation_angle": args.rotation_angle,
     "crops_per_image": args.crops_per_image_unlabeled,
-    "batch_size": args.batch_size_unlabeled
+    "batch_size": args.batch_size_unlabeled,
+    "hue_jitter": args.hue_jitter,
+    "sat_jitter": args.sat_jitter,
+    "val_jitter": args.val_jitter,
 }
 
-ds_train_labeled: tf.data.Dataset = get_tf_train_dataset(
-    data_train, params_labeled)
-ds_train_unlabeled: tf.data.Dataset = get_tf_train_dataset(
-    data_unlabeled, params_unlabeled)
-ds_train_unlabeled = ds_train_unlabeled.map(
-    lambda x, y: x, num_parallel_calls=tf.data.AUTOTUNE)
+# load labeled dataset and take the right amount of batches per epoch
+ds_train_labeled: tf.data.Dataset = get_tf_train_dataset(data_train, params_labeled)
+ds_train_labeled = ds_train_labeled.take(steps_per_epoch).repeat()
+
+# load unlabeled dataset, remove labels and take the right amount of batches per epoch
+ds_train_unlabeled: tf.data.Dataset = get_tf_train_dataset(data_unlabeled, params_unlabeled)
+ds_train_unlabeled = ds_train_unlabeled.map(lambda x, y: x, num_parallel_calls=tf.data.AUTOTUNE)
+ds_train_unlabeled = ds_train_unlabeled.take(steps_per_epoch).repeat()
+
 ds_zip = tf.data.Dataset.zip((ds_train_labeled, ds_train_unlabeled))
 ds_train = ds_zip.prefetch(tf.data.AUTOTUNE)
 

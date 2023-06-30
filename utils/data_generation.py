@@ -104,6 +104,5 @@ def get_tf_train_dataset(data, params):
             num_parallel_calls=tf.data.AUTOTUNE
         )
     ds_train = ds_train.batch(params["batch_size"])
-    ds_train = ds_train.repeat()
 
     return ds_train

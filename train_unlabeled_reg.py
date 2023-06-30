@@ -15,6 +15,7 @@ from utils.jaccard_loss import OneHotMeanIoU, jaccard_loss_mean_wrapper
 from utils.size_regularization import QuadraticPenaltyHeight
 from utils.unet import SemiSupUNetBuilder
 from utils.utils import crop_to_multiple_of
+from labeled_images import LABELED_IMAGES, LABELED_IMAGES_VAL
 
 SC = 0
 LED = 2
@@ -84,24 +85,14 @@ run_dir = os.path.join(args.runs_dir, run_name)
 
 # load data
 train_images = os.listdir(os.path.join(args.data_root, "train", "images"))
-if args.num_images_labeled > 0:
-    train_images_labeled = [
-        train_images[3],
-        train_images[34],
-        train_images[64],
-        train_images[4],
-        train_images[5],
-    ][: args.num_images_labeled]
-else:
-    train_images_labeled = train_images
 
 
-data_train = read_dataset(args.data_root, "train", train_images_labeled)
+data_train = read_dataset(args.data_root, "train", LABELED_IMAGES[args.num_images_labeled])
 data_unlabeled = read_dataset(args.data_root, "train")
 # just to be sure...
 data_unlabeled = [(x, np.zeros_like(y)) for x, y in data_unlabeled]
 
-data_val = read_dataset(args.data_root, "val")
+data_val = read_dataset(args.data_root, "val", LABELED_IMAGES_VAL)
 data_val = [
     (crop_to_multiple_of(im, 2**args.depth),
      crop_to_multiple_of(gt, 2**args.depth)) for (im, gt) in data_val

@@ -191,13 +191,11 @@ def alpha_schedule1(t):
 
 
 def alpha_schedule2(t):
-    out = tf.minimum(tf.cast(t, tf.float32) * increase_ratio, args.max_weight)
-    return args.height_reg_weight * out
+    return tf.minimum(tf.cast(t, tf.float32) * increase_ratio, args.height_reg_weight)
 
 
 def alpha_schedule3(t):
-    out = tf.minimum(tf.cast(t, tf.float32) * increase_ratio, args.max_weight)
-    return args.height_reg_weight * out
+    return tf.minimum(tf.cast(t, tf.float32) * increase_ratio, args.height_reg_weight)
 
 
 alpha_schedule = [alpha_schedule1, alpha_schedule2, alpha_schedule3]

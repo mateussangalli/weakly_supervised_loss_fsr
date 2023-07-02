@@ -237,7 +237,9 @@ model.compile(
     tf.keras.optimizers.experimental.Adam(
         args.starting_lr, weight_decay=args.weight_decay),
     loss_labeled,
-    loss_unlab1,
+    [loss_unlab1,
+     loss_unlab2,
+     loss_unlab3],
     metrics=[
         OneHotMeanIoU(3),
         directional_loss_metric,

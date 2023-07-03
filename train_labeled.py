@@ -41,7 +41,7 @@ def parse_args():
 
     # crop generator arguments
     parser.add_argument("--crop_size", type=int, default=160)
-    parser.add_argument("--crops_per_image", type=int, default=16)
+    parser.add_argument("--crops_per_image", type=int, default=64)
     parser.add_argument("--min_scale", type=float, default=-1.0)
     parser.add_argument("--max_scale", type=float, default=1.3)
 

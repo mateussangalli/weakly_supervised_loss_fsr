@@ -65,8 +65,8 @@ parser.add_argument("--strel_size", type=int, default=3)
 parser.add_argument("--strel_spread", type=int, default=2)
 parser.add_argument("--strel_iterations", type=int, default=10)
 
-parser.add_argument("--hmax_sc", type=float, default=50.)
-parser.add_argument("--hmax_led", type=float, default=90.)
+parser.add_argument("--hmax_sc", type=float, default=70.)
+parser.add_argument("--hmax_led", type=float, default=120.)
 parser.add_argument("--height_reg_weight", type=float, default=0.)
 
 # verbose

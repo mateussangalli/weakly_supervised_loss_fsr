@@ -1,5 +1,8 @@
+import numpy as np
 import tensorflow as tf
 from keras.metrics import MeanIoU
+
+EPSILON = 1e-5
 
 
 @tf.function
@@ -60,3 +63,15 @@ class OneHotMeanIoU(MeanIoU):
         y_true = tf.ensure_shape(y_true, [None, None, None, self.num_classes])
         y_pred = tf.ensure_shape(y_pred, [None, None, None, self.num_classes])
         return super().update_state(tf.argmax(y_true, axis=-1), tf.argmax(y_pred, axis=-1), sample_weight)
+
+
+def mean_iou(y_true, y_pred, depth=3):
+    if y_true.shape != y_pred.shape:
+        raise ValueError(
+            'prediction and ground truth should have the same shape')
+    y_true = np.reshape(y_true, [-1, depth]).astype(np.float32)
+    y_pred = np.reshape(y_pred, [-1, depth]).astype(np.float32)
+    union_sum = np.sum(np.maximum(y_true, y_pred), 0)
+    intersection_sum = np.sum(np.minimum(y_true, y_pred), 0)
+    iou_per_class = (intersection_sum + EPSILON) / (union_sum + EPSILON)
+    return np.mean(iou_per_class)

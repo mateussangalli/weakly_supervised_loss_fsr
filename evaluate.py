@@ -23,12 +23,15 @@ filenames = os.listdir(os.path.join(args.data_root, args.subset, "images"))
 
 data = read_dataset(args.data_root, args.subset, filenames, min_size=(0, 0))
 
+proba_dir = os.path.join(run_dir, 'probability_maps', args.subset)
+pred_dir = os.path.join(run_dir, 'predictions', args.subset)
+post_dir = os.path.join(run_dir, 'postproc', args.subset)
 results = list()
 for filename, (im, gt) in zip(filenames, data):
-    pred_path = os.path.join(args.data_root, args.subset, "predictions", filename)
-    pred = read_label(pred_path)
-    post_path = os.path.join(args.data_root, args.subset, "postproc", filename)
-    post = read_label(post_path)
+    pred_path = os.path.join(pred_dir, filename)
+    pred = read_label(pred_path, one_hot=True)
+    post_path = os.path.join(post_dir, filename)
+    post = read_label(post_path, one_hot=True)
     gt = one_hot(gt)
     miou_pred = mean_iou(gt, pred)
     miou_post = mean_iou(gt, post)
@@ -36,6 +39,6 @@ for filename, (im, gt) in zip(filenames, data):
     results.append(tmp)
 
 df = pd.DataFrame(results)
-df.to_csv(os.path.join(args.data_root, args.subset, 'results.csv'))
+df.to_csv(os.path.join(run_dir, f'results_{args.subset}.csv'))
 
-pd.DataFrame(df.mean()).to_csv(os.path.join(args.data_root, args.subset, 'average_results.csv'))
+pd.DataFrame(df.mean()).to_csv(os.path.join(run_dir, f'average_results_{args.subset}.csv'))

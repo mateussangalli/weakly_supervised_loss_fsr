@@ -1,10 +1,12 @@
-import numpy as np
-
 import keras
+import numpy as np
 from keras.losses import CategoricalCrossentropy
-from .jaccard_loss import OneHotMeanIoU
+
 from .combined_loss import CombinedLoss
 from .directional_relations import PRPDirectionalPenalty
+from .jaccard_loss import OneHotMeanIoU
+from .size_regularization import QuadraticPenaltyHeight
+from .unlabeled_training import SemiSupModel, SemiSupModelPseudo
 
 
 def crop(im, size, start=(0, 0)):
@@ -79,10 +81,15 @@ def load_model(path, size=3, spread=2, iterations=5):
         0.,
     )
 
-    custom_objects = {'OneHotMeanIoU': OneHotMeanIoU(3),
-                      'directional_loss_metric': directional_loss_metric,
-                      'crossentropy_metric': crossentropy_metric,
-                      'CombinedLoss': loss_fn}
+    custom_objects = {
+        'OneHotMeanIoU': OneHotMeanIoU(3),
+        'directional_loss_metric': directional_loss_metric,
+        'crossentropy_metric': crossentropy_metric,
+        'CombinedLoss': loss_fn,
+        'SemiSupModel': SemiSupModel,
+        'SemiSupModelPseudo': SemiSupModelPseudo,
+        'QuadraticPenaltyHeight': QuadraticPenaltyHeight
+    }
     return keras.models.load_model(path,
                                    custom_objects=custom_objects,
                                    compile=False)

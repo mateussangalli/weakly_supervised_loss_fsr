@@ -14,7 +14,7 @@ from utils.directional_relations import PRPDirectionalPenalty
 from utils.jaccard_loss import OneHotMeanIoU, jaccard_loss_mean_wrapper
 from utils.size_regularization import QuadraticPenaltyHeight
 from utils.unet import SemiSupPseudoUNetBuilder
-from utils.utils import crop_to_multiple_of
+from utils.utils import crop_to_multiple_of, load_model
 from utils.mean_teacher import MeanTeacher
 from labeled_images import LABELED_IMAGES, LABELED_IMAGES_VAL
 
@@ -26,7 +26,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("model_path", type=str)
 parser.add_argument("--run_id", type=str, default='')
 parser.add_argument("--data_root", type=str, default="~/weak_supervision_data")
-parser.add_argument("--runs_dir", type=str, default="no_pseudo_runs")
+parser.add_argument("--runs_dir", type=str, default="runs_mean_teacher")
 
 # training arguments
 # WARN: make sure that batch_size_labeled divides batch_size_unlabeled
@@ -70,6 +70,8 @@ parser.add_argument("--strel_iterations", type=int, default=10)
 parser.add_argument("--hmax_sc", type=float, default=50.)
 parser.add_argument("--hmax_led", type=float, default=90.)
 parser.add_argument("--height_reg_weight", type=float, default=0.)
+
+parser.add_argument("--noise_value", type=float, default=0.1)
 
 parser.add_argument("--mean_teacher_alpha", type=float, default=0.99)
 
@@ -148,6 +150,7 @@ params_unlabeled = {
     "hue_jitter": args.hue_jitter,
     "sat_jitter": args.sat_jitter,
     "val_jitter": args.val_jitter,
+    "noise_value": args.noise_value,
 }
 
 teacher = load_model(args.model_path)
@@ -158,7 +161,7 @@ ds_train_labeled = ds_train_labeled.take(steps_per_epoch).repeat()
 
 # load unlabeled dataset, remove labels and take the right amount of batches per epoch
 ds_train_unlabeled: tf.data.Dataset = get_tf_train_dataset(data_unlabeled, params_unlabeled)
-ds_train_unlabeled = ds_train_unlabeled.map(lambda x, y: x, teacher(x), num_parallel_calls=tf.data.AUTOTUNE)
+ds_train_unlabeled = ds_train_unlabeled.map(lambda x, y: (x, teacher(x)), num_parallel_calls=tf.data.AUTOTUNE)
 ds_train_unlabeled = ds_train_unlabeled.take(steps_per_epoch).repeat()
 
 ds_zip = tf.data.Dataset.zip((ds_train_labeled, ds_train_unlabeled))
@@ -269,7 +272,7 @@ model.fit(
     validation_steps=len(data_val),
     epochs=args.epochs,
     callbacks=[
-        MeanTeacher(args.mean_teacher_alpha, teacher)
+        MeanTeacher(args.mean_teacher_alpha, teacher),
         CSVLogger(os.path.join(run_dir, 'training_history.csv')),
         LearningRateScheduler(lr_schedule)],
     verbose=args.verbose,

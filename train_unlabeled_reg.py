@@ -175,7 +175,15 @@ ds_val = ds_val.prefetch(tf.data.AUTOTUNE)
 ds_val = ds_val.repeat()
 
 # create run dir
-os.makedirs(run_dir, exist_ok=True)
+try:
+    os.makedirs(run_dir, exist_ok=False)
+except FileExistsError as e:
+    print(e)
+    run_dir_tmp = run_dir
+    i = 1
+    while os.path.exists(run_dir_tmp):
+        run_dir_tmp = run_dir + '_' + str(i)
+        i += 1
 params_path = os.path.join(run_dir, 'params.json')
 args_dict = vars(args)
 with open(params_path, 'w') as fp:

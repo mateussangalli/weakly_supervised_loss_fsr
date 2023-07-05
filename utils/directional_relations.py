@@ -14,9 +14,11 @@ def directional_kernel(direction, kernel_size):
         yy = np.zeros_like(yy)
     directions_kernel = np.stack([xx, yy], -1)
     # directions_kernel = directions_kernel / (np.linalg.norm(directions_kernel, 2, 2, keepdims=True) + EPS)
+    point_norm = np.linalg.norm(directions_kernel, 2, 2, keepdims=True)
     kernel = np.sum(-directions_kernel * direction, -1, keepdims=True)
-    kernel = (kernel + EPS) / (np.linalg.norm(directions_kernel, 2, 2, keepdims=True) + EPS)
+    kernel = (kernel + EPS) / (point_norm + EPS)
     kernel = np.maximum(kernel, 0.)**2
+    kernel = np.where(point_norm <= 1, kernel, 0.)
     return kernel
 
 
@@ -163,10 +165,10 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
-    im = np.zeros([31, 31], np.float32)
-    im[15, 15] = 1.
+    im = np.zeros([71, 71], np.float32)
+    im[36, 36] = 1.
     im = im[np.newaxis, :, :, np.newaxis]
-    layer = Below(15, 1, dilation_type='product')
+    layer = Below(10, 2, dilation_type='maxplus')
     out = layer(im)[0, :, :, 0]
     plt.subplot(121)
     plt.imshow(out)

@@ -1,14 +1,14 @@
-import unittest
 import shutil
-import numpy as np
+import unittest
 
+import numpy as np
 import tensorflow as tf
 from keras.layers import Dense, Input
 from keras.models import load_model
 
-from utils.unlabeled_training import SemiSupModelPseudo
-from utils.unet import SemiSupPseudoUNetBuilder
 from utils.directional_relations import PRPDirectionalPenalty
+from utils.unet import SemiSupPseudoUNetBuilder
+from utils.unlabeled_training import SemiSupModelPseudo
 
 
 class TestUnlabeledTraining(unittest.TestCase):
@@ -44,8 +44,10 @@ class TestUnlabeledTraining(unittest.TestCase):
         inputs_u = tf.random.uniform([40, 5])
         outputs_u = tf.random.uniform([40, 10])
 
-        ds_l = tf.data.Dataset.from_tensor_slices((inputs_l, outputs_l)).batch(4)
-        ds_u = tf.data.Dataset.from_tensor_slices((inputs_u, outputs_u)).batch(8)
+        ds_l = tf.data.Dataset.from_tensor_slices(
+            (inputs_l, outputs_l)).batch(4)
+        ds_u = tf.data.Dataset.from_tensor_slices(
+            (inputs_u, outputs_u)).batch(8)
         ds = tf.data.Dataset.zip((ds_l, ds_u))
 
         model.fit(ds, epochs=2, verbose=0)
@@ -62,8 +64,10 @@ class TestUnlabeledTraining(unittest.TestCase):
         inputs_u = tf.random.uniform([40, 5])
         outputs_u = tf.random.uniform([40, 10])
 
-        ds_l = tf.data.Dataset.from_tensor_slices((inputs_l, outputs_l)).batch(4)
-        ds_u = tf.data.Dataset.from_tensor_slices((inputs_u, outputs_u)).batch(8)
+        ds_l = tf.data.Dataset.from_tensor_slices(
+            (inputs_l, outputs_l)).batch(4)
+        ds_u = tf.data.Dataset.from_tensor_slices(
+            (inputs_u, outputs_u)).batch(8)
         ds = tf.data.Dataset.zip((ds_l, ds_u))
 
         model.fit(ds, epochs=20, verbose=0)
@@ -95,10 +99,13 @@ class TestUnlabeledTraining(unittest.TestCase):
         inputs_l_val = tf.random.uniform([20, 5])
         outputs_l_val = tf.random.uniform([20, 10])
 
-        ds_l = tf.data.Dataset.from_tensor_slices((inputs_l, outputs_l)).batch(4)
-        ds_u = tf.data.Dataset.from_tensor_slices((inputs_u, outputs_u)).batch(8)
+        ds_l = tf.data.Dataset.from_tensor_slices(
+            (inputs_l, outputs_l)).batch(4)
+        ds_u = tf.data.Dataset.from_tensor_slices(
+            (inputs_u, outputs_u)).batch(8)
         ds = tf.data.Dataset.zip((ds_l, ds_u))
-        ds_val = tf.data.Dataset.from_tensor_slices((inputs_l_val, outputs_l_val)).batch(4)
+        ds_val = tf.data.Dataset.from_tensor_slices(
+            (inputs_l_val, outputs_l_val)).batch(4)
 
         model.fit(ds, epochs=2, validation_data=ds_val)
         model.evaluate(ds_val)
@@ -121,8 +128,10 @@ class TestUnlabeledTraining(unittest.TestCase):
         inputs_u = tf.random.uniform([40, 5])
         outputs_u = tf.random.uniform([40, 10])
 
-        ds_l = tf.data.Dataset.from_tensor_slices((inputs_l, outputs_l)).batch(4)
-        ds_u = tf.data.Dataset.from_tensor_slices((inputs_u, outputs_u)).batch(8)
+        ds_l = tf.data.Dataset.from_tensor_slices(
+            (inputs_l, outputs_l)).batch(4)
+        ds_u = tf.data.Dataset.from_tensor_slices(
+            (inputs_u, outputs_u)).batch(8)
         ds = tf.data.Dataset.zip((ds_l, ds_u))
 
         history = model.fit(ds, epochs=15, verbose=0)
@@ -132,7 +141,9 @@ class TestUnlabeledTraining(unittest.TestCase):
         self.assertAlmostEqual(dist, 0.)
 
     def test_unet(self):
-        model = SemiSupPseudoUNetBuilder((32, 32, 5), 2, 3, output_channels=3).build()
+        model = SemiSupPseudoUNetBuilder(
+            (32, 32, 5), 2, 3, output_channels=3).build()
+
         def loss2(pred): return tf.reduce_sum(tf.abs(pred))
         model.compile('adam', tf.keras.losses.MeanSquaredError(),
                       tf.keras.losses.MeanSquaredError(), metrics=[tf.keras.losses.MeanSquaredError()])
@@ -144,10 +155,13 @@ class TestUnlabeledTraining(unittest.TestCase):
         inputs_l_val = tf.random.uniform([20, 32, 32, 5])
         outputs_l_val = tf.random.uniform([20, 32, 32, 3])
 
-        ds_l = tf.data.Dataset.from_tensor_slices((inputs_l, outputs_l)).batch(4)
-        ds_u = tf.data.Dataset.from_tensor_slices((inputs_u, outputs_u)).batch(8)
+        ds_l = tf.data.Dataset.from_tensor_slices(
+            (inputs_l, outputs_l)).batch(4)
+        ds_u = tf.data.Dataset.from_tensor_slices(
+            (inputs_u, outputs_u)).batch(8)
         ds = tf.data.Dataset.zip((ds_l, ds_u))
-        ds_val = tf.data.Dataset.from_tensor_slices((inputs_l_val, outputs_l_val)).batch(4)
+        ds_val = tf.data.Dataset.from_tensor_slices(
+            (inputs_l_val, outputs_l_val)).batch(4)
 
         model.fit(ds, epochs=2, validation_data=ds_val, verbose=0)
         model.evaluate(ds_val)

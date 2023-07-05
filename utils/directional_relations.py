@@ -103,7 +103,7 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
                  sc_class=0,
                  le_class=2,
                  bg_class=1,
-                 dilation_type='product',
+                 dilation_type='maxplus',
                  tnorm='product',
                  **kwargs):
         self.distance = distance

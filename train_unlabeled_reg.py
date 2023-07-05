@@ -57,8 +57,8 @@ parser.add_argument("--bn_momentum", type=float, default=0.9)
 # unlabeled loss function arguments
 parser.add_argument("--max_weight", type=float, default=1.0)
 parser.add_argument("--increase_epochs", type=int, default=10)
-parser.add_argument("--strel_size", type=int, default=3)
-parser.add_argument("--strel_iterations", type=int, default=10)
+parser.add_argument("--strel_size", type=int, default=20)
+parser.add_argument("--strel_iterations", type=int, default=1)
 
 parser.add_argument("--hmax_sc", type=float, default=70.)
 parser.add_argument("--hmax_led", type=float, default=120.)

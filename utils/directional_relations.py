@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-EPS = 1e-5
+EPS = 1e-4
 
 
 def directional_kernel(direction, kernel_size):
@@ -13,8 +13,9 @@ def directional_kernel(direction, kernel_size):
     if kernel_size[1] == 1:
         yy = np.zeros_like(yy)
     directions_kernel = np.stack([xx, yy], -1)
-    directions_kernel = directions_kernel / (np.linalg.norm(directions_kernel, 2, 2, keepdims=True) + EPS)
+    # directions_kernel = directions_kernel / (np.linalg.norm(directions_kernel, 2, 2, keepdims=True) + EPS)
     kernel = np.sum(-directions_kernel * direction, -1, keepdims=True)
+    kernel = (kernel + EPS) / (np.linalg.norm(directions_kernel, 2, 2, keepdims=True) + EPS)
     kernel = np.maximum(kernel, 0.)**2
     return kernel
 

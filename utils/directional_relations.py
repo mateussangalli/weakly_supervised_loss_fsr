@@ -19,13 +19,12 @@ def directional_kernel(direction, kernel_size):
     return kernel
 
 
-def fuzzy_product_dilation(image, kernel):
+def fuzzy_product_dilation(image, kernel, kernel_size):
     """
     Args:
         image: 4-D tensor [batches, height, width, depth]
         kernel: 3-D tensor [kernel_height, kernel_width, depth]
     """
-    kernel_size = tf.shape(kernel)
     shape = tf.shape(image)
     patches = tf.image.extract_patches(
         image,
@@ -57,7 +56,7 @@ class DirectionalRelation:
         out = inputs
         for i in range(self.iterations):
             if self.dilation_type == 'product':
-                tmp = fuzzy_product_dilation(out, self.kernel)
+                tmp = fuzzy_product_dilation(out, self.kernel, self.kernel_size)
             else:
                 tmp = tf.nn.dilation2d(out,
                                        self.kernel - 1.,
@@ -121,7 +120,7 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
         if isinstance(tnorm, str):
             if tnorm == 'product':
                 self.tnorm = product_tnorm
-            if tnorm == 'lukasiewicz':
+            elif tnorm == 'lukasiewicz':
                 self.tnorm = product_tnorm
             else:
                 raise ValueError('tnorm not recognized')

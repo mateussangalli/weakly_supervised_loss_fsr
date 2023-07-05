@@ -122,6 +122,10 @@ class SemiSupUNetBuilder(UNetBuilder):
             last_layer_activation,
             drop_rate)
         self.alpha = alpha
+        if not isinstance(alpha, list):
+            self.num_unlabeled_losses = 1
+        else: 
+            self.num_unlabeled_losses = len(alpha)
 
     def build(self):
         inputs = Input(self.input_shape)
@@ -147,7 +151,7 @@ class SemiSupUNetBuilder(UNetBuilder):
 
         return SemiSupModel(inputs, out,
                             alpha=self.alpha,
-                            num_unlabeled_losses=len(self.alpha))
+                            num_unlabeled_losses=self.num_unlabeled_losses)
 
 
 class SemiSupPseudoUNetBuilder(UNetBuilder):

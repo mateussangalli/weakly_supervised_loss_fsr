@@ -24,10 +24,9 @@ parser = argparse.ArgumentParser()
 # data dir arguments
 parser.add_argument("--run_id", type=str, default='')
 parser.add_argument("--data_root", type=str, default="~/weak_supervision_data")
-parser.add_argument("--runs_dir", type=str, default="no_pseudo_runs")
+parser.add_argument("--runs_dir", type=str, default="runs/no_pseudo_runs")
 
 # training arguments
-# WARN: make sure that batch_size_labeled divides batch_size_unlabeled
 parser.add_argument("--num_images_labeled", type=int, default=3)
 parser.add_argument("--batch_size_labeled", type=int, default=32)
 parser.add_argument("--batch_size_unlabeled", type=int, default=96)
@@ -43,9 +42,6 @@ parser.add_argument("--labeled_loss_fn", choices=['iou', 'crossentropy'], defaul
 
 # crop generator arguments
 parser.add_argument("--crop_size", type=int, default=160)
-# WARN: please choose a number of crops_per_image_unlabeled such that
-#  num_images_unlabeled * crops_per_image_unlabeled * batch_size_labeled is a multiple of
-#  num_images_labeled * batch_size_unlabeled
 parser.add_argument("--crops_per_image_unlabeled", type=int, default=3)
 parser.add_argument("--min_scale", type=float, default=-1.0)
 parser.add_argument("--max_scale", type=float, default=1.3)
@@ -58,11 +54,10 @@ parser.add_argument("--filters_start", type=int, default=8)
 parser.add_argument("--depth", type=int, default=4)
 parser.add_argument("--bn_momentum", type=float, default=0.9)
 
-# loss function arguments
+# unlabeled loss function arguments
 parser.add_argument("--max_weight", type=float, default=1.0)
 parser.add_argument("--increase_epochs", type=int, default=10)
 parser.add_argument("--strel_size", type=int, default=3)
-parser.add_argument("--strel_spread", type=int, default=2)
 parser.add_argument("--strel_iterations", type=int, default=10)
 
 parser.add_argument("--hmax_sc", type=float, default=70.)
@@ -112,39 +107,26 @@ samples_per_epoch_unlabeled = args.crops_per_image_unlabeled * \
     len(data_unlabeled)
 steps_per_epoch_labeled = int(np.ceil(samples_per_epoch_label / args.batch_size_labeled))
 steps_per_epoch_unlabeled = int(np.ceil(samples_per_epoch_unlabeled / args.batch_size_unlabeled))
-# verify that everything is at it should be
-# if steps_per_epoch_unlabeled != steps_per_epoch_labeled:
-#     msg1 = f'labeled: \n crops/image: {crops_per_image_labeled},' + \
-#         'num images: {len(data_train)}, batch_size: {args.batch_size_labeled}'
-#     msg2 = f'unlabeled: \n crops/image: {args.crops_per_image_unlabeled},' + \
-#         ' num images: {len(data_unlabeled)}, batch_size: {args.batch_size_unlabeled}'
-#     raise ValueError(
-#         'number of steps is wrong! \n' + msg1 + '\n' + msg2
-#     )
+
 steps_per_epoch = min(steps_per_epoch_unlabeled, steps_per_epoch_labeled)
 
-params_labeled = {
+# set params for the data iterator
+params = {
     "min_scale": args.min_scale,
     "max_scale": args.max_scale,
     "crop_size": args.crop_size,
     "rotation_angle": args.rotation_angle,
-    "crops_per_image": crops_per_image_labeled,
-    "batch_size": args.batch_size_labeled,
     "hue_jitter": args.hue_jitter,
     "sat_jitter": args.sat_jitter,
     "val_jitter": args.val_jitter,
 }
-params_unlabeled = {
-    "min_scale": args.min_scale,
-    "max_scale": args.max_scale,
-    "crop_size": args.crop_size,
-    "rotation_angle": args.rotation_angle,
-    "crops_per_image": args.crops_per_image_unlabeled,
-    "batch_size": args.batch_size_unlabeled,
-    "hue_jitter": args.hue_jitter,
-    "sat_jitter": args.sat_jitter,
-    "val_jitter": args.val_jitter,
-}
+params_labeled = params.copy()
+params_labeled['crops_per_image'] = crops_per_image_labeled
+params_labeled['batch_size'] = args.batch_size_labeled
+
+params_unlabeled = params.copy()
+params_unlabeled['crops_per_image'] = args.crops_per_image_unlabeled
+params_unlabeled['batch_size'] = args.batch_size_unlabeled
 
 # load labeled dataset and take the right amount of batches per epoch
 ds_train_labeled: tf.data.Dataset = get_tf_train_dataset(data_train, params_labeled)
@@ -190,6 +172,7 @@ with open(params_path, 'w') as fp:
     json.dump(args_dict, fp)
 
 
+# define regularization weight schedules
 increase_ratio = args.max_weight / float(args.increase_epochs)
 
 
@@ -218,7 +201,6 @@ model = SemiSupUNetBuilder(
     alpha=alpha_schedule
 ).build()
 directional_loss = PRPDirectionalPenalty(args.strel_size,
-                                         args.strel_spread,
                                          args.strel_iterations)
 height_penalty_sc = QuadraticPenaltyHeight(SC, args.hmax_sc)
 height_penalty_led = QuadraticPenaltyHeight(LED, args.hmax_led)
@@ -235,7 +217,6 @@ else:
     loss_labeled = CategoricalCrossentropy(from_logits=False)
 
 loss_unlab1 = PRPDirectionalPenalty(args.strel_size,
-                                    args.strel_spread,
                                     args.strel_iterations)
 loss_unlab2 = QuadraticPenaltyHeight(SC, args.hmax_sc)
 loss_unlab3 = QuadraticPenaltyHeight(LED, args.hmax_led)

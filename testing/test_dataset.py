@@ -4,7 +4,6 @@ import unittest
 import numpy as np
 import tensorflow as tf
 
-from utils.data_augmentation import resize_inputs
 from utils.data_generation import get_tf_train_dataset
 from utils.data_loading import read_dataset
 
@@ -26,6 +25,7 @@ INCREASE_EPOCHS = 50
 
 NUM_REPEAT = 2
 
+
 class TestDataset(unittest.TestCase):
     def test_train_dataset(self):
         train_images = os.listdir(os.path.join(DATA_ROOT, "train", "images"))
@@ -46,7 +46,6 @@ class TestDataset(unittest.TestCase):
 
         ds_train = get_tf_train_dataset(data_train, params)
         ds_train = ds_train.prefetch(tf.data.AUTOTUNE)
-
 
         num_steps = 0
         for x, y in ds_train:

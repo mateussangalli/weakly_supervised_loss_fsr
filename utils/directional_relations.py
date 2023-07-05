@@ -89,6 +89,14 @@ class Below(DirectionalRelation):
         super().__init__(distance, iterations, (1, 0), dilation_type)
 
 
+def product_tnorm(a, b):
+    return a * b
+
+
+def lukasiewicz_tnorm(a, b):
+    return tf.maximum(a + b - 1., 0.)
+
+
 class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
     def __init__(self,
                  distance,
@@ -97,6 +105,7 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
                  le_class=2,
                  bg_class=1,
                  dilation_type='product',
+                 tnorm='product',
                  **kwargs):
         self.distance = distance
         self.iterations = iterations
@@ -108,6 +117,15 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
         self.above = Above(distance, iterations, dilation_type=dilation_type)
         self.below = Below(distance, iterations, dilation_type=dilation_type)
 
+        self.dilation_dype = dilation_type
+        if isinstance(tnorm, str):
+            if tnorm == 'product':
+                self.tnorm = product_tnorm
+            if tnorm == 'lukasiewicz':
+                self.tnorm = product_tnorm
+            else:
+                raise ValueError('tnorm not recognized')
+
     def regularization_term(self, inputs):
         prob_bg = tf.expand_dims(inputs[..., self.bg_class], -1)
         prob_sc = tf.expand_dims(inputs[..., self.sc_class], -1)
@@ -118,11 +136,11 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
 
         below_sc = self.below(prob_sc)
         above_le = self.above(prob_le)
-        between_sc_and_le = below_sc * above_le
+        between_sc_and_le = self.tnorm(below_sc, above_le)
 
-        le_above_sc = prob_le * above_sc
-        sc_below_le = prob_sc * below_le
-        bg_between_sc_and_le = prob_bg * between_sc_and_le
+        le_above_sc = self.tnorm(prob_le, above_sc)
+        sc_below_le = self.tnorm(prob_sc, below_le)
+        bg_between_sc_and_le = self.tnorm(prob_bg, between_sc_and_le)
 
         penalty = tf.reduce_mean(le_above_sc) + \
             tf.reduce_mean(sc_below_le) + \

@@ -86,7 +86,7 @@ class SemiSupModelPseudo(tf.keras.Model):
     def compile(self, optimizer, loss_labeled, loss_unlabeled, **kwargs):
         # WARN: if you load this model you probably have to call this function again
         # WARN: also when you cal evaluate it will not use any of these losses
-        super(SemiSupModel, self).compile(**kwargs)
+        super(SemiSupModelPseudo, self).compile(**kwargs)
         self.optimizer = tf.keras.optimizers.get(optimizer)
         self.loss_labeled = tf.keras.losses.get(loss_labeled)
         if isinstance(loss_unlabeled, collections.Iterable):

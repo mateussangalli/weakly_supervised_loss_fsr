@@ -148,7 +148,7 @@ class TestUnlabeledTraining(unittest.TestCase):
 
     def test_directional_loss(self):
         model = SemiSupUNetBuilder((32, 32, 5), 2, 3, output_channels=3).build()
-        loss2 = PRPDirectionalPenalty(3, 2, 5)
+        loss2 = PRPDirectionalPenalty(3, 5)
         model.compile('adam', 'mse', loss2, metrics=['mse'])
 
         inputs_l = tf.random.uniform([20, 32, 32, 5])

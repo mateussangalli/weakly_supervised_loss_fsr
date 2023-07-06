@@ -1,11 +1,13 @@
 import argparse
 import os
 import pandas as pd
-
+import numpy as np
+from skimage.io import imread
 
 from utils.data_loading import read_label, read_dataset
 from utils.jaccard_loss import mean_iou
 from utils.utils import one_hot
+from utils.directional_relations import PRPDirectionalPenalty
 
 parser = argparse.ArgumentParser()
 # data dir arguments
@@ -18,6 +20,8 @@ args = parser.parse_args()
 
 run_dir = os.path.join(args.runs_dir, args.run_id)
 
+prp_penalty = PRPDirectionalPenalty(20, 1)
+
 # load data
 filenames = os.listdir(os.path.join(args.data_root, args.subset, "images"))
 
@@ -28,6 +32,9 @@ pred_dir = os.path.join(run_dir, 'predictions', args.subset)
 post_dir = os.path.join(run_dir, 'postproc', args.subset)
 results = list()
 for filename, (im, gt) in zip(filenames, data):
+    proba_path = os.path.join(proba_dir, filename)
+    proba = imread(proba_path)
+    dir_penalty = np.array(prp_penalty(proba[np.newaxis, ...]))[0]
     pred_path = os.path.join(pred_dir, filename)
     pred = read_label(pred_path, one_hot=True)
     post_path = os.path.join(post_dir, filename)
@@ -35,7 +42,7 @@ for filename, (im, gt) in zip(filenames, data):
     gt = one_hot(gt)
     miou_pred = mean_iou(gt, pred)
     miou_post = mean_iou(gt, post)
-    tmp = {'image': filename, 'mean_iou_pred': miou_pred, 'mean_iou_post': miou_post}
+    tmp = {'image': filename, 'mean_iou_pred': miou_pred, 'mean_iou_post': miou_post, 'dir_penalty': dir_penalty}
     results.append(tmp)
 
 df = pd.DataFrame(results)

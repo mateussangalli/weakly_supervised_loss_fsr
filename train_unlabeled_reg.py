@@ -166,6 +166,7 @@ except FileExistsError as e:
     while os.path.exists(run_dir_tmp):
         run_dir_tmp = run_dir + '_' + str(i)
         i += 1
+    run_dir = run_dir_tmp
 params_path = os.path.join(run_dir, 'params.json')
 args_dict = vars(args)
 with open(params_path, 'w') as fp:

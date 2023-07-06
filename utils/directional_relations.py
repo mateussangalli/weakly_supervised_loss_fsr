@@ -91,6 +91,51 @@ class Below(DirectionalRelation):
         super().__init__(distance, iterations, (1, 0), dilation_type)
 
 
+class StraightBelow:
+    def __init__(self, distance, iterations):
+        self.distance = distance
+        self.iterations = iterations
+        self.kernel_size = (2 * distance + 1, 1)
+
+        kernel = np.zeros(self.kernel_size, np.float32)
+        kernel[:distance+1, 0] = 1.
+        kernel = kernel[:, :, np.newaxis]
+        self.kernel = tf.constant(kernel, tf.float32)
+
+    def __call__(self, inputs):
+        out = inputs
+        for i in range(self.iterations):
+            out = tf.nn.dilation2d(out,
+                                   self.kernel - 1.,
+                                   (1, 1, 1, 1),
+                                   'SAME',
+                                   'NHWC',
+                                   (1, 1, 1, 1))
+        return out - inputs
+
+class StraightAbove:
+    def __init__(self, distance, iterations):
+        self.distance = distance
+        self.iterations = iterations
+        self.kernel_size = (2 * distance + 1, 1)
+
+        kernel = np.zeros(self.kernel_size, np.float32)
+        kernel[:distance+1, 0] = 1.
+        kernel = kernel[::-1, :]
+        kernel = kernel[:, :, np.newaxis]
+        self.kernel = tf.constant(kernel, tf.float32)
+
+    def __call__(self, inputs):
+        out = inputs
+        for i in range(self.iterations):
+            out = tf.nn.dilation2d(out,
+                                   self.kernel - 1.,
+                                   (1, 1, 1, 1),
+                                   'SAME',
+                                   'NHWC',
+                                   (1, 1, 1, 1))
+        return out - inputs
+
 def product_tnorm(a, b):
     return a * b
 
@@ -106,8 +151,9 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
                  sc_class=0,
                  le_class=2,
                  bg_class=1,
-                 dilation_type='maxplus',
+                 dilation_type='flat_line',
                  tnorm='product',
+                 return_map=False,
                  **kwargs):
         self.distance = distance
         self.iterations = iterations
@@ -116,10 +162,14 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
         self.le_class = le_class
         self.bg_class = bg_class
 
-        self.above = Above(distance, iterations, dilation_type=dilation_type)
-        self.below = Below(distance, iterations, dilation_type=dilation_type)
+        self.dilation_type = dilation_type
+        if dilation_type == 'flat_line':
+            self.above = StraightAbove(distance, iterations)
+            self.below = StraightBelow(distance, iterations)
+        else:
+            self.above = Above(distance, iterations, dilation_type=dilation_type)
+            self.below = Below(distance, iterations, dilation_type=dilation_type)
 
-        self.dilation_dype = dilation_type
         if isinstance(tnorm, str):
             if tnorm == 'product':
                 self.tnorm = product_tnorm
@@ -128,25 +178,28 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
             else:
                 raise ValueError('tnorm not recognized')
 
+        self.return_map = return_map
+
     def regularization_term(self, inputs):
         prob_bg = tf.expand_dims(inputs[..., self.bg_class], -1)
         prob_sc = tf.expand_dims(inputs[..., self.sc_class], -1)
         prob_le = tf.expand_dims(inputs[..., self.le_class], -1)
 
         above_sc = self.above(prob_sc)
-        below_le = self.below(prob_le)
-
         below_sc = self.below(prob_sc)
+        below_le = self.below(prob_le)
         above_le = self.above(prob_le)
-        between_sc_and_le = self.tnorm(below_sc, above_le)
 
         le_above_sc = self.tnorm(prob_le, above_sc)
         sc_below_le = self.tnorm(prob_sc, below_le)
-        bg_between_sc_and_le = self.tnorm(prob_bg, between_sc_and_le)
+        bg_below_sc = self.tnorm(prob_bg, below_sc)
+        bg_above_le = self.tnorm(prob_bg, above_le)
 
-        penalty = tf.reduce_mean(le_above_sc) + \
-            tf.reduce_mean(sc_below_le) + \
-            tf.reduce_mean(bg_between_sc_and_le)
+        if self.return_map:
+            return le_above_sc + sc_below_le + bg_above_le + bg_below_sc
+
+        penalty = tf.reduce_mean(le_above_sc) + tf.reduce_mean(sc_below_le) + \
+            tf.reduce_mean(bg_below_sc) + tf.reduce_mean(bg_above_le)
 
         return penalty
 
@@ -160,6 +213,9 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
         config['sc_class'] = self.sc_class
         config['le_class'] = self.le_class
         config['bg_class'] = self.bg_class
+        config['dilation_type'] = self.dilation_type
+        config['tnorm'] = self.tnorm
+        config['return_map'] = self.return_map
 
 
 if __name__ == '__main__':
@@ -168,7 +224,8 @@ if __name__ == '__main__':
     im = np.zeros([71, 71], np.float32)
     im[36, 36] = 1.
     im = im[np.newaxis, :, :, np.newaxis]
-    layer = Below(10, 2, dilation_type='maxplus')
+    # layer = Below(10, 2, dilation_type='maxplus')
+    layer = StraightAbove(10, 2)
     out = layer(im)[0, :, :, 0]
     plt.subplot(121)
     plt.imshow(out)

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from skimage.io import imsave
 import numpy as np
 
 from utils.directional_relations import PRPDirectionalPenalty
@@ -19,6 +20,7 @@ def label2grey(label):
     return colors[label]
 
 colors = [(0., 0., 0., 0.), (0.9, 0.4, 0., 1.)]
+color_heatmap = np.array((0.9, 0.4, 0.), np.float32)[np.newaxis, np.newaxis, :]
 cmap = mcolors.LinearSegmentedColormap.from_list('custom_colormap', colors)
  
 fn1 = PRPDirectionalPenalty(20, 1, return_map=True, dilation_type='maxplus')
@@ -32,6 +34,10 @@ for i, pred in enumerate(preds):
     ax.imshow(pred, alpha=1.)
     ax.imshow(penalty, cmap=cmap, vmin=0., vmax=1., alpha=.7)
 
+    # penalty = penalty[..., np.newaxis]
+    im_out = pred * (1. - penalty * .7) + color_heatmap * penalty * .7
+    imsave(f'../pred_heatmap_{i}.png', im_out)
+
 for i, pred in enumerate(preds):
     penalty = np.array(fn2(pred[np.newaxis, ...]))[0, ...]
     pred = label2grey(pred)
@@ -39,4 +45,8 @@ for i, pred in enumerate(preds):
     ax = plt.subplot(2, 3, i+4)
     ax.imshow(pred, alpha=1.)
     ax.imshow(penalty, cmap=cmap, vmin=0., vmax=1., alpha=.7)
+
+    # penalty = penalty[..., np.newaxis]
+    im_out = pred * (1. - penalty * .7) + color_heatmap * penalty * .7
+    imsave(f'../pred_heatmap_{i}_flat.png', im_out)
 plt.show()

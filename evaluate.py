@@ -33,8 +33,8 @@ post_dir = os.path.join(run_dir, 'postproc', args.subset)
 results = list()
 for filename, (im, gt) in zip(filenames, data):
     proba_path = os.path.join(proba_dir, filename)
-    proba = imread(proba_path)
-    dir_penalty = np.array(prp_penalty(proba[np.newaxis, ...]))[0]
+    proba = imread(proba_path).astype(np.float32) / 255.
+    dir_penalty = float(np.array(prp_penalty(proba[np.newaxis, ...])))
     pred_path = os.path.join(pred_dir, filename)
     pred = read_label(pred_path, one_hot=True)
     post_path = os.path.join(post_dir, filename)
@@ -50,6 +50,8 @@ df.to_csv(os.path.join(run_dir, f'results_{args.subset}.csv'))
 
 average_results = dict()
 for column in df:
+    if column == 'image':
+        continue
     average_results[column] = [df[column].mean()]
 df_average = pd.DataFrame(average_results)
 df_average.to_csv(os.path.join(run_dir, f'average_results_{args.subset}.csv'))

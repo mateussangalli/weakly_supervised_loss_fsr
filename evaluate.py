@@ -48,4 +48,8 @@ for filename, (im, gt) in zip(filenames, data):
 df = pd.DataFrame(results)
 df.to_csv(os.path.join(run_dir, f'results_{args.subset}.csv'))
 
-pd.DataFrame(df.mean()).to_csv(os.path.join(run_dir, f'average_results_{args.subset}.csv'))
+average_results = dict()
+for column in df:
+    average_results[column] = [df[column].mean()]
+df_average = pd.DataFrame(average_results)
+df_average.to_csv(os.path.join(run_dir, f'average_results_{args.subset}.csv'))

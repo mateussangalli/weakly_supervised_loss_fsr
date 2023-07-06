@@ -23,7 +23,6 @@ for run_id in os.listdir(args.runs_dir):
     with open(params_path, 'r') as fp:
         params = json.load(fp)
 
-
     weight = params['max_weight']
     height_weight = params['height_reg_weight']
     key = f'({weight:.4f},{height_weight:.4f})'

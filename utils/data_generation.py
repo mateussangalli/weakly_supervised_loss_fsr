@@ -104,12 +104,6 @@ def get_tf_train_dataset(data, params):
         random_horizontal_flip,
         num_parallel_calls=tf.data.AUTOTUNE,
     )
-    if "noise_value" in params:
-        noise_shape = (params["crop_size"], params["crop_size"], 3)
-        ds_train = ds_train.map(
-            lambda x, y: (x + tf.random.normal(noise_shape, 0., params["noise_value"]), y),
-            num_parallel_calls=tf.data.AUTOTUNE
-        )
     if "color_transfer_probability" in params:
         color_means = np.load('means_training_set.npy')
         color_means = tf.constant(color_means, tf.float32)
@@ -118,6 +112,12 @@ def get_tf_train_dataset(data, params):
             params["color_transfer_probability"])
         ds_train = ds_train.map(
             lambda x, y: (color_transfer(x), y),
+            num_parallel_calls=tf.data.AUTOTUNE
+        )
+    if "noise_value" in params:
+        noise_shape = (params["crop_size"], params["crop_size"], 3)
+        ds_train = ds_train.map(
+            lambda x, y: (x + tf.random.normal(noise_shape, 0., params["noise_value"]), y),
             num_parallel_calls=tf.data.AUTOTUNE
         )
     ds_train = ds_train.batch(params["batch_size"])

@@ -25,7 +25,7 @@ for run_id in os.listdir(args.runs_dir):
 
     weight = params['max_weight']
     height_weight = params['height_reg_weight']
-    key = f'({weight:.4f},{height_weight:.4f})'
+    key = f'({weight:.5f},{height_weight:.5f})'
     if key not in results:
         results[key] = {}
         for column in df:

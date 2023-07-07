@@ -121,12 +121,12 @@ params = {
     "hue_jitter": args.hue_jitter,
     "sat_jitter": args.sat_jitter,
     "val_jitter": args.val_jitter,
+    "color_transfer_probability": args.color_transfer_probability,
+    "noise_value": args.noise_value
 }
 params_labeled = params.copy()
 params_labeled['crops_per_image'] = crops_per_image_labeled
 params_labeled['batch_size'] = args.batch_size_labeled
-params_labeled['color_transfer_probability'] = args.color_transfer_probability
-params_labeled['noise_value'] = args.noise_value
 
 params_unlabeled = params.copy()
 params_unlabeled['crops_per_image'] = args.crops_per_image_unlabeled

@@ -82,6 +82,7 @@ params_labeled = {
     "crops_per_image": crops_per_image_labeled,
     "batch_size": args.batch_size_labeled,
     "color_transfer_probability": .9,
+    "noise_value": .02,
 }
 params_unlabeled = {
     "min_scale": args.min_scale,
@@ -90,6 +91,8 @@ params_unlabeled = {
     "rotation_angle": args.rotation_angle,
     "crops_per_image": args.crops_per_image_unlabeled,
     "batch_size": args.batch_size_unlabeled,
+    "color_transfer_probability": .9,
+    "noise_value": .02,
 }
 
 # load labeled dataset and take the right amount of batches per epoch

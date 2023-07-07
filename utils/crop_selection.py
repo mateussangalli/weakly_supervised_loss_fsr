@@ -57,10 +57,10 @@ def pad(im, gt=None, size=None):
     pad01 = max((size[0] - im.shape[0]) - pad00, 0)
     pad10 = max((size[1] - im.shape[1]) // 2, 0)
     pad11 = max((size[1] - im.shape[1]) - pad00, 0)
-    im_pad = np.pad(im, [[pad00, pad01], [pad10, pad11], [0, 0]], mode="reflect")
+    im_pad = np.pad(im, [[pad00, pad01], [pad10, pad11], [0, 0]], mode="constant")
     if gt is None:
         return im_pad
-    gt_pad = np.pad(gt, [[pad00, pad01], [pad10, pad11]], mode="reflect")
+    gt_pad = np.pad(gt, [[pad00, pad01], [pad10, pad11]], mode="constant")
     return im_pad, gt_pad
 
 

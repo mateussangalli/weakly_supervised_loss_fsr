@@ -342,11 +342,11 @@ class RandomRotation:
         im_out = tfa.image.rotate(image,
                                   angle,
                                   interpolation='bilinear',
-                                  fill_mode='reflect')
+                                  fill_mode='constant')
         gt_out = tfa.image.rotate(gt,
                                   angle,
                                   interpolation='nearest',
-                                  fill_mode='reflect')
+                                  fill_mode='constant')
         return im_out, gt_out
 
 

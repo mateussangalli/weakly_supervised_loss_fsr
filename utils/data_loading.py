@@ -1,11 +1,7 @@
-import gzip
 import os
-import pickle
-
 import numpy as np
 import pandas as pd
 from skimage.io import imread, imsave
-from tqdm import tqdm
 
 
 def save_label(label, filename):

@@ -44,10 +44,11 @@ parser.add_argument("--labeled_loss_fn", choices=['iou', 'crossentropy'], defaul
 parser.add_argument("--crop_size", type=int, default=160)
 parser.add_argument("--crops_per_image_unlabeled", type=int, default=3)
 parser.add_argument("--min_scale", type=float, default=-1.0)
-parser.add_argument("--max_scale", type=float, default=1.3)
+parser.add_argument("--max_scale", type=float, default=1.4)
 parser.add_argument("--hue_jitter", type=float, default=0.)
 parser.add_argument("--sat_jitter", type=float, default=0.)
 parser.add_argument("--val_jitter", type=float, default=0.)
+parser.add_argument("--noise_value", type=float, default=0.)
 parser.add_argument("--color_transfer_probability", type=float, default=0.)
 
 # architecture arguments
@@ -125,6 +126,7 @@ params_labeled = params.copy()
 params_labeled['crops_per_image'] = crops_per_image_labeled
 params_labeled['batch_size'] = args.batch_size_labeled
 params_labeled['color_transfer_probability'] = args.color_transfer_probability
+params_labeled['noise_value'] = args.noise_value
 
 params_unlabeled = params.copy()
 params_unlabeled['crops_per_image'] = args.crops_per_image_unlabeled

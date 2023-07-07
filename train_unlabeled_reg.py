@@ -48,6 +48,7 @@ parser.add_argument("--max_scale", type=float, default=1.3)
 parser.add_argument("--hue_jitter", type=float, default=0.)
 parser.add_argument("--sat_jitter", type=float, default=0.)
 parser.add_argument("--val_jitter", type=float, default=0.)
+parser.add_argument("--color_transfer_probability", type=float, default=0.)
 
 # architecture arguments
 parser.add_argument("--filters_start", type=int, default=8)
@@ -75,7 +76,7 @@ else:
     scale_range = (args.min_scale, args.max_scale)
 
 if args.run_id == '':
-    weight_str = f'{args.max_weight:.4f}'.replace('.', 'p')
+    weight_str = f'{args.max_weight:.5f}'.replace('.', 'p')
     run_name = f'weight{weight_str}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
 else:
     run_name = args.run_id
@@ -123,6 +124,7 @@ params = {
 params_labeled = params.copy()
 params_labeled['crops_per_image'] = crops_per_image_labeled
 params_labeled['batch_size'] = args.batch_size_labeled
+params_labeled['color_transfer_probability'] = args.color_transfer_probability
 
 params_unlabeled = params.copy()
 params_unlabeled['crops_per_image'] = args.crops_per_image_unlabeled

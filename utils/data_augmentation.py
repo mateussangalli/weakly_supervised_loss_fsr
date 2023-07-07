@@ -196,11 +196,17 @@ def smoothstep(value, tmin, tmax):
 
 
 class ColorTransfer:
-    def __init__(self, means, probability=.5, white_threshold_min=.96, white_threshold_max=.99):
+    def __init__(self,
+                 means,
+                 probability=.5,
+                 white_threshold_min=.96,
+                 white_threshold_max=.99,
+                 black_threshold=0.01):
         self.means = means
         self.probability = probability
         self.white_threshold_min = white_threshold_min
         self.white_threshold_max = white_threshold_max
+        self.black_threshold = black_threshold
 
     def apply_augmentation(self, image: tf.Tensor):
         # mask out the white pixels an subtract the old mean
@@ -209,6 +215,8 @@ class ColorTransfer:
                           self.white_threshold_min,
                           self.white_threshold_max)
         mask = 1. - mask
+        mask = tf.where(tf.reduce_max(image, -1, keepdims=True) > self.black_threshold,
+                        mask, 0.)
         # return tf.tile(mask, [1, 1, 3])
         im_mean = tf.reduce_sum(mask * image, [0, 1], keepdims=True) / (tf.reduce_sum(mask) + 1e-10)
 
@@ -346,7 +354,8 @@ class RandomRotation:
         gt_out = tfa.image.rotate(gt,
                                   angle,
                                   interpolation='nearest',
-                                  fill_mode='constant')
+                                  fill_mode='constant',
+                                  fill_value=1)
         return im_out, gt_out
 
 

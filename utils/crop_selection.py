@@ -60,7 +60,7 @@ def pad(im, gt=None, size=None):
     im_pad = np.pad(im, [[pad00, pad01], [pad10, pad11], [0, 0]], mode="constant")
     if gt is None:
         return im_pad
-    gt_pad = np.pad(gt, [[pad00, pad01], [pad10, pad11]], mode="constant")
+    gt_pad = np.pad(gt, [[pad00, pad01], [pad10, pad11]], mode="constant", constant_values=1)
     return im_pad, gt_pad
 
 

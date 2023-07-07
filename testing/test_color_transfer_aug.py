@@ -29,7 +29,7 @@ parser.add_argument("--sat_jitter", type=float, default=0.)
 parser.add_argument("--val_jitter", type=float, default=0.)
 
 # crop generator arguments
-parser.add_argument("--crop_size", type=int, default=160)
+parser.add_argument("--crop_size", type=int, default=256)
 parser.add_argument("--crops_per_image_unlabeled", type=int, default=1)
 parser.add_argument("--min_scale", type=float, default=-1.0)
 parser.add_argument("--max_scale", type=float, default=1.3)

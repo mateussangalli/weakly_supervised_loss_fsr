@@ -29,7 +29,7 @@ parser.add_argument("--sat_jitter", type=float, default=0.)
 parser.add_argument("--val_jitter", type=float, default=0.)
 
 # crop generator arguments
-parser.add_argument("--crop_size", type=int, default=160)
+parser.add_argument("--crop_size", type=int, default=256)
 # WARN: please choose a number of crops_per_image_unlabeled such that
 #  num_images_unlabeled * crops_per_image_unlabeled * batch_size_labeled is a multiple of
 #  num_images_labeled * batch_size_unlabeled

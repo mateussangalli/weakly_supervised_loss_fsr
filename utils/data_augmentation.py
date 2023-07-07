@@ -188,11 +188,15 @@ class ColorTransferForeground:
 
 
 def smoothstep(value, tmin, tmax):
-    return tf.minimum(tf.maximum((value - tmin) / (tmax - tmin), 0.), 1.)
+    return tf.minimum(
+        tf.maximum(
+            (value - tmin) / (tmax - tmin),
+            0.),
+        1.)
 
 
 class ColorTransfer:
-    def __init__(self, means, probability=.5, white_threshold_min=.9, white_threshold_max=.95):
+    def __init__(self, means, probability=.5, white_threshold_min=.96, white_threshold_max=.99):
         self.means = means
         self.probability = probability
         self.white_threshold_min = white_threshold_min
@@ -201,7 +205,11 @@ class ColorTransfer:
     def apply_augmentation(self, image: tf.Tensor):
         # mask out the white pixels an subtract the old mean
         # mask = tf.cast(tf.reduce_min(image, keepdims=True) < self.white_threshold, image.dtype)
-        mask = smoothstep(tf.reduce_min(image, keepdims=True), self.white_threshold_min, self.white_threshold_max)
+        mask = smoothstep(tf.reduce_min(image, -1, keepdims=True),
+                          self.white_threshold_min,
+                          self.white_threshold_max)
+        mask = 1. - mask
+        # return tf.tile(mask, [1, 1, 3])
         im_mean = tf.reduce_sum(mask * image, [0, 1], keepdims=True) / (tf.reduce_sum(mask) + 1e-10)
 
         # select one of the mean tensors

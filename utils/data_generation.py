@@ -111,7 +111,9 @@ def get_tf_train_dataset(data, params):
             num_parallel_calls=tf.data.AUTOTUNE
         )
     if "color_transfer_probability" in params:
-        color_transfer = ColorTransfer(params["color_transfer_means"], params["color_transfer_probability"])
+        color_transfer = ColorTransfer(
+            params["color_transfer_means"],
+            params["color_transfer_probability"])
         ds_train = ds_train.map(
             lambda x, y: (color_transfer(x), y),
             num_parallel_calls=tf.data.AUTOTUNE

@@ -82,7 +82,6 @@ params_labeled = {
     "crops_per_image": crops_per_image_labeled,
     "batch_size": args.batch_size_labeled,
     "color_transfer_probability": .9,
-    "color_transfer_means": tf.constant([[.5, .5, .5]])
 }
 params_unlabeled = {
     "min_scale": args.min_scale,

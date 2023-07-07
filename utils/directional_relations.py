@@ -151,7 +151,7 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
                  sc_class=0,
                  le_class=2,
                  bg_class=1,
-                 dilation_type='flat_line',
+                 dilation_type='maxplus',
                  tnorm='product',
                  return_map=False,
                  **kwargs):

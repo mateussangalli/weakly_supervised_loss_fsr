@@ -2,10 +2,6 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
 import tensorflow_io as tfio
-from keras import backend
-from keras.layers import Layer
-from keras.losses import kl_divergence
-from keras.utils import control_flow_util
 from skimage.color import rgb2lab
 from tqdm import tqdm
 
@@ -48,7 +44,7 @@ def random_horizontal_flip(image, label):
                    (image, label))
 
 
-class ColorTransferAugmentation:
+class ColorTransferForeground:
     """
     Based on Yang XIAO code.
     Perform a random color transfer by shifting the mean and
@@ -191,6 +187,38 @@ class ColorTransferAugmentation:
         return self.color_transfer(image, label)
 
 
+def smoothstep(value, tmin, tmax):
+    return tf.minimum(tf.maximum((value - tmin) / (tmax - tmin), 0.), 1.)
+
+
+class ColorTransfer:
+    def __init__(self, means, probability=.5, white_threshold_min=.9, white_threshold_max=.95):
+        self.means = means
+        self.probability = probability
+        self.white_threshold_min = white_threshold_min
+        self.white_threshold_max = white_threshold_max
+
+    def apply_augmentation(self, image: tf.Tensor):
+        # mask out the white pixels an subtract the old mean
+        # mask = tf.cast(tf.reduce_min(image, keepdims=True) < self.white_threshold, image.dtype)
+        mask = smoothstep(tf.reduce_min(image, keepdims=True), self.white_threshold_min, self.white_threshold_max)
+        im_mean = tf.reduce_sum(mask * image, [0, 1], keepdims=True) / (tf.reduce_sum(mask) + 1e-10)
+
+        # select one of the mean tensors
+        indice = tf.cast(tf.random.uniform((), 0, self.means.shape[0]), tf.int32)
+        new_mean = self.means[indice, :]
+        new_mean = tf.reshape(new_mean, [1, 1, 3])
+        mean_change = new_mean - im_mean
+
+        return mask * (image + mean_change) + (1. - mask) * image
+
+    def __call__(self, image: tf.Tensor):
+        r = tf.random.uniform(shape=[], minval=0.0, maxval=1.0)
+        return tf.cond(r < self.probability,
+                       lambda: self.apply_augmentation(image),
+                       lambda: image)
+
+
 @tf.function
 def resize_inputs(im, gt, size):
     """
@@ -294,117 +322,6 @@ class Cropper:
                      dtype=tf.int32), [self.crop_size, self.crop_size],
             method='nearest')
         return images_cropped, labels_cropped
-
-
-class ContrastAug:
-
-    def __init__(self,
-                 alpha_max,
-                 beta_max,
-                 gamma_diff,
-                 num_channels=3,
-                 augment_batch=False,
-                 batch_size=None,
-                 aug_channels_independently=False):
-        self.gamma_max = 1. + gamma_diff
-        self.gamma_min = 1. - gamma_diff
-        self.beta_max = beta_max
-        self.beta_min = -beta_max
-        self.alpha_max = alpha_max
-        self.alpha_min = 1. / alpha_max
-
-        self.augment_batch = augment_batch
-        self.batch_size = batch_size
-
-        self.num_channels = num_channels
-
-        self.aug_channels_independently = aug_channels_independently
-
-    def __call__(self, image):
-        if self.aug_channels_independently:
-            num_channels = self.num_channels
-        else:
-            num_channels = 1
-        if self.augment_batch:
-            batch_size = tf.shape(image)[0]
-            shape = [batch_size, 1, 1, num_channels]
-        else:
-            shape = [1, 1, self.num_channels]
-
-        if self.gamma_max > self.gamma_min:
-            gamma = tf.random.uniform(shape, self.gamma_min, self.gamma_max)
-            image = image ** gamma
-
-        if self.alpha_max > self.alpha_min:
-            alpha = log_uniform(shape, self.alpha_min, self.alpha_max)
-            image = image * alpha
-
-        if self.beta_max > self.beta_min:
-            beta = tf.random.uniform(shape, self.beta_min, self.beta_max)
-            image = image + beta
-
-        return image
-
-
-class MultipleAugmentations:
-
-    def __init__(self,
-                 augmentation,
-                 batch_size,
-                 multiplicity,
-                 augment_labels=False):
-        self.augmentation = augmentation
-        self.batch_size = batch_size
-        self.multiplicity = multiplicity
-        self.augment_labels = False
-
-    def __call__(self, images, labels):
-        images = tf.tile(images, (self.multiplicity, 1, 1, 1))
-        labels = tf.tile(labels, (self.multiplicity, 1, 1, 1))
-        if self.augment_labels:
-            return self.augmentation(images, labels)
-        return self.augmentation(images), labels
-
-
-class MultipleAugmentationsKLRegularization(Layer):
-
-    def __init__(self, multiplicity, weight, **kwargs):
-        super().__init__(**kwargs)
-        self.weight = weight
-        self.multiplicity = multiplicity
-
-    def regularization_term(self, probabilities):
-        if self.multiplicity == 1:
-            return 0.
-        shape = tf.shape(probabilities)
-        probabilities = tf.reshape(
-            probabilities,
-            [self.multiplicity, -1, shape[1], shape[2], shape[3]])
-        kl = kl_divergence(tf.expand_dims(probabilities, 0),
-                           tf.expand_dims(probabilities, 1))
-        mask = 1. - tf.reshape(
-            tf.linalg.eye(self.multiplicity),
-            [self.multiplicity, self.multiplicity, 1, 1, 1, 1])
-        kl = kl * mask
-        out = tf.reduce_sum(kl, axis=[0, 1])
-        out = (1 / (self.multiplicity**2 - self.multiplicity)) * out
-        return tf.reduce_mean(out)
-
-    def get_config(self):
-        config = {'multiplicity': self.multiplicity, 'weight': self.weight}
-        return config
-
-    def call(self, inputs, training=None):
-        if training is None:
-            training = backend.learning_phase()
-
-        def apply_loss():
-            self.add_loss(self.weight * self.regularization_term(inputs))
-            return inputs
-
-        output = control_flow_util.smart_cond(training, apply_loss,
-                                              lambda: tf.identity(inputs))
-        return output
 
 
 class RandomRotation:

@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 from .crop_selection import select_crop
-from .data_augmentation import (RandomRotation, ColorJitter,
+from .data_augmentation import (RandomRotation, ColorJitter, ColorTransfer,
                                 random_horizontal_flip, resize_inputs)
 
 
@@ -108,6 +108,12 @@ def get_tf_train_dataset(data, params):
         noise_shape = (params["crop_size"], params["crop_size"], 3)
         ds_train = ds_train.map(
             lambda x, y: (x + tf.random.normal(noise_shape, 0., params["noise_value"]), y),
+            num_parallel_calls=tf.data.AUTOTUNE
+        )
+    if "color_transfer_probability" in params:
+        color_transfer = ColorTransfer(params["color_transfer_means"], params["color_transfer_probability"])
+        ds_train = ds_train.map(
+            lambda x, y: (color_transfer(x), y),
             num_parallel_calls=tf.data.AUTOTUNE
         )
     ds_train = ds_train.batch(params["batch_size"])

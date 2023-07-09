@@ -218,10 +218,12 @@ class ColorTransfer:
         mask = tf.where(tf.reduce_max(image, -1, keepdims=True) > self.black_threshold,
                         mask, 0.)
         # return tf.tile(mask, [1, 1, 3])
-        im_mean = tf.reduce_sum(mask * image, [0, 1], keepdims=True) / (tf.reduce_sum(mask) + 1e-10)
+        im_mean = tf.reduce_sum(
+            mask * image, [0, 1], keepdims=True) / (tf.reduce_sum(mask) + 1e-10)
 
         # select one of the mean tensors
-        indice = tf.cast(tf.random.uniform((), 0, self.means.shape[0]), tf.int32)
+        indice = tf.cast(tf.random.uniform(
+            (), 0, self.means.shape[0]), tf.int32)
         new_mean = self.means[indice, :]
         new_mean = tf.reshape(new_mean, [1, 1, 3])
         mean_change = new_mean - im_mean
@@ -262,6 +264,43 @@ def log_uniform(shape, min_value, max_value, dtype=tf.float32):
                             dtype=dtype)
     out = tf.math.exp(out)
     return out
+
+
+def resize_crop_pad_aug(scale_range, output_size):
+    output_size = tf.constant(output_size, dtype=tf.int32)
+
+    def resize_crop_pad(image, label):
+        resize_factor = log_uniform([], scale_range[0], scale_range[1])
+
+        # Compute the new size after resizing
+        new_size = tf.cast(
+            tf.round(tf.multiply(tf.cast(output_size, tf.float32),
+                                 resize_factor)),
+            tf.int32)
+
+        # Resize the image and label
+        image = tf.image.resize(image, new_size, method=tf.image.ResizeMethod.BILINEAR)
+        label = tf.image.resize(label, new_size, method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+
+        # Pad the image and label if necessary
+        pad_h = tf.maximum(0, output_size[0] - new_size[0])
+        pad_w = tf.maximum(0, output_size[1] - new_size[1])
+        padded_h = tf.maximum(output_size[0], new_size[0])
+        padded_w = tf.maximum(output_size[1], new_size[1])
+        image = tf.image.pad_to_bounding_box(image, pad_h // 2, pad_w // 2, padded_h, padded_w)
+        label = tf.image.pad_to_bounding_box(label, pad_h // 2, pad_w // 2, padded_h, padded_w)
+
+        # Randomly select crop position
+        crop_x = tf.random.uniform([], maxval=tf.maximum(1, new_size[1] - output_size[1]), dtype=tf.int32)
+        crop_y = tf.random.uniform([], maxval=tf.maximum(1, new_size[0] - output_size[0]), dtype=tf.int32)
+
+        # Crop the image and label
+        image = tf.image.crop_to_bounding_box(image, crop_y, crop_x, output_size[0], output_size[1])
+        label = tf.image.crop_to_bounding_box(label, crop_y, crop_x, output_size[0], output_size[1])
+
+
+        return image, label
+    return resize_crop_pad
 
 
 class Cropper:

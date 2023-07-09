@@ -220,6 +220,7 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
+    from skimage.io import imsave
 
     r = 30
     size = r * 2 + 1
@@ -238,3 +239,14 @@ if __name__ == '__main__':
     plt.subplot(122)
     plt.imshow(layer.kernel[::-1, ::-1, 0])
     plt.show()
+    #
+    # im = np.array(im)[0, :, :, 0]
+    # im = (255. * im).astype(np.uint8)
+    # out = np.array(out)
+    # out = (255. * out).astype(np.uint8)
+    # kernel = np.array(layer.kernel[::-1, ::-1, 0])
+    # kernel = (255. * kernel).astype(np.uint8)
+    #
+    # imsave('square.png', im)
+    # imsave('left_of_square.png', out)
+    # imsave('kernel_left_of.png', kernel)

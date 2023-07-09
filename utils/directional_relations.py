@@ -221,14 +221,20 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
-    im = np.zeros([71, 71], np.float32)
-    im[36, 36] = 1.
+    r = 30
+    size = r * 2 + 1
+    sqr_side = 10
+    sqr_r = sqr_side // 2
+    im = np.zeros([size, size], np.float32)
+    im[r-sqr_r:r+sqr_r, r-sqr_r:r+sqr_r] = 1.
     im = im[np.newaxis, :, :, np.newaxis]
     # layer = Below(10, 2, dilation_type='maxplus')
-    layer = StraightAbove(10, 2)
-    out = layer(im)[0, :, :, 0]
+    # layer = StraightAbove(10, 40)
+    layer = LeftOf(30, 1, dilation_type='maxplus')
+    out = layer(im) + im
+    out = out[0, :, :, 0]
     plt.subplot(121)
     plt.imshow(out)
     plt.subplot(122)
-    plt.imshow(layer.kernel[:, :, 0])
+    plt.imshow(layer.kernel[::-1, ::-1, 0])
     plt.show()

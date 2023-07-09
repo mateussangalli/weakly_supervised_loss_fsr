@@ -35,6 +35,8 @@ parser.add_argument("--crops_per_image_unlabeled", type=int, default=1)
 parser.add_argument("--min_scale", type=float, default=-1.0)
 parser.add_argument("--max_scale", type=float, default=1.3)
 
+parser.add_argument("--do_not_show", action='store_true')
+
 args = parser.parse_args()
 
 
@@ -94,13 +96,14 @@ ds_zip = tf.data.Dataset.zip((ds_train_labeled, ds_train_unlabeled))
 ds_train = ds_zip.prefetch(tf.data.AUTOTUNE)
 
 for (im_l, gt), im_u in ds_train:
-    plt.subplot(131)
-    plt.title('labeled')
-    plt.imshow(im_l[0, ...])
-    plt.subplot(132)
-    plt.title('ground truth')
-    plt.imshow(gt[0, ...])
-    plt.subplot(133)
-    plt.title('unlabeled')
-    plt.imshow(im_u[0, ...])
-    plt.show()
+    if not args.do_not_show:
+        plt.subplot(131)
+        plt.title('labeled')
+        plt.imshow(im_l[0, ...])
+        plt.subplot(132)
+        plt.title('ground truth')
+        plt.imshow(gt[0, ...])
+        plt.subplot(133)
+        plt.title('unlabeled')
+        plt.imshow(im_u[0, ...])
+        plt.show()

@@ -1,14 +1,14 @@
-import unittest
 import shutil
-import numpy as np
+import unittest
 
+import numpy as np
 import tensorflow as tf
 from keras.layers import Dense, Input
 from keras.models import load_model
 
-from utils.unlabeled_training import SemiSupModel
-from utils.unet import SemiSupUNetBuilder
 from utils.directional_relations import PRPDirectionalPenalty
+from utils.unet import SemiSupUNetBuilder
+from utils.unlabeled_training import SemiSupModel
 
 
 class TestUnlabeledTraining(unittest.TestCase):

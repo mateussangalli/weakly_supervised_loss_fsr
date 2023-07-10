@@ -143,7 +143,6 @@ def product_tnorm(a, b):
 def lukasiewicz_tnorm(a, b):
     return tf.maximum(a + b - 1., 0.)
 
-
 class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
     def __init__(self,
                  distance,
@@ -153,6 +152,7 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
                  bg_class=1,
                  dilation_type='maxplus',
                  tnorm='product',
+                 reduction_type='mean',
                  return_map=False,
                  **kwargs):
         self.distance = distance
@@ -180,6 +180,8 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
 
         self.return_map = return_map
 
+        self.reduction_type = reduction_type
+
     def regularization_term(self, inputs):
         prob_bg = tf.expand_dims(inputs[..., self.bg_class], -1)
         prob_sc = tf.expand_dims(inputs[..., self.sc_class], -1)
@@ -195,11 +197,16 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
         bg_below_sc = self.tnorm(prob_bg, below_sc)
         bg_above_le = self.tnorm(prob_bg, above_le)
 
+        map = le_above_sc + sc_below_le + bg_above_le + bg_below_sc
         if self.return_map:
-            return le_above_sc + sc_below_le + bg_above_le + bg_below_sc
+            return map
 
-        penalty = tf.reduce_mean(le_above_sc) + tf.reduce_mean(sc_below_le) + \
-            tf.reduce_mean(bg_below_sc) + tf.reduce_mean(bg_above_le)
+        if self.reduction_type == 'squared_mean':
+            penalty = tf.reduce_mean(map**2)
+        elif self.reduction_type == 'mean':
+            penalty = tf.reduce_mean(map)
+        else:
+            raise ValueError("unrecognized reduction argument")
 
         return penalty
 

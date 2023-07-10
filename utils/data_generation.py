@@ -205,10 +205,6 @@ def get_online_dataset(data, params):
     )
     ds_train = ds_train.shuffle(samples_per_epoch)
     ds_train = ds_train.map(
-        lambda im, gt: random_resize_aug(scale_range),
-        num_parallel_calls=tf.data.AUTOTUNE,
-    )
-    ds_train = ds_train.map(
         RandomRotation(params["rotation_angle"]),
         num_parallel_calls=tf.data.AUTOTUNE,
     )
@@ -221,6 +217,10 @@ def get_online_dataset(data, params):
         )
     ds_train = ds_train.map(
         lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
+    )
+    ds_train = ds_train.map(
+        random_resize_aug(scale_range),
+        num_parallel_calls=tf.data.AUTOTUNE,
     )
     ds_train = ds_train.map(
         random_horizontal_flip,

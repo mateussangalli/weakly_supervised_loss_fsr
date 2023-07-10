@@ -55,6 +55,7 @@ parser.add_argument("--color_transfer_probability", type=float, default=0.)
 parser.add_argument("--filters_start", type=int, default=8)
 parser.add_argument("--depth", type=int, default=4)
 parser.add_argument("--bn_momentum", type=float, default=0.9)
+parser.add_argument("--normalization", choices=['batch', 'layer', 'none'], default='batch')
 
 # unlabeled loss function arguments
 parser.add_argument("--max_weight", type=float, default=1.0)
@@ -200,7 +201,7 @@ model = SemiSupUNetBuilder(
     (None, None, 3),
     args.filters_start,
     args.depth,
-    normalization="batch",
+    normalization=args.normalization,
     normalize_all=False,
     batch_norm_momentum=args.bn_momentum,
     alpha=alpha_schedule

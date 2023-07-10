@@ -266,6 +266,43 @@ def log_uniform(shape, min_value, max_value, dtype=tf.float32):
     return out
 
 
+def random_resize_aug(scale_range):
+    def random_resize(image, label):
+        resize_factor = log_uniform([], scale_range[0], scale_range[1])
+
+        size = tf.cast(tf.shape(image)[:2], tf.float32)
+        new_size = resize_factor * size
+        new_size = tf.cast(new_size, tf.int32)
+
+        # Resize the image and label
+        image = tf.image.resize(image, new_size, method=tf.image.ResizeMethod.BILINEAR)
+        label = tf.image.resize(label, new_size, method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+
+        return image, label
+    return random_resize
+
+
+def pad_to_multiple_of(image, label, k):
+    h = tf.shape(image)[0]
+    w = tf.shape(image)[1]
+    pad_h = k - tf.math.mod(h, k)
+    pad_w = k - tf.math.mod(w, k)
+
+    padded_h = h + pad_h
+    padded_w = w + pad_w
+
+    image = tf.image.pad_to_bounding_box(image, pad_h // 2, pad_w // 2, padded_h, padded_w)
+    label = tf.image.pad_to_bounding_box(label, pad_h // 2, pad_w // 2, padded_h, padded_w)
+    return image, label
+
+
+def noise_aug(noise_value):
+    def noise(image):
+        noise_shape = tf.shape(image)
+        return image + tf.random.normal(noise_shape, 0., noise_value)
+    return noise
+
+
 def resize_crop_pad_aug(scale_range, output_size):
     output_size = tf.constant(output_size, dtype=tf.int32)
 
@@ -297,7 +334,6 @@ def resize_crop_pad_aug(scale_range, output_size):
         # Crop the image and label
         image = tf.image.crop_to_bounding_box(image, crop_y, crop_x, output_size[0], output_size[1])
         label = tf.image.crop_to_bounding_box(label, crop_y, crop_x, output_size[0], output_size[1])
-
 
         return image, label
     return resize_crop_pad

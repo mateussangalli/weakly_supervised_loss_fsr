@@ -2,8 +2,8 @@ import numpy as np
 import tensorflow as tf
 
 from .crop_selection import select_crop
-from .data_augmentation import (RandomRotation, ColorJitter, ColorTransfer,
-                                random_horizontal_flip, resize_inputs, resize_crop_pad_aug)
+from .data_augmentation import (RandomRotation, ColorJitter, ColorTransfer, random_resize_aug, pad_to_multiple_of,
+                                random_horizontal_flip, resize_inputs, resize_crop_pad_aug, noise_aug)
 
 
 def crop_generator(
@@ -181,5 +181,69 @@ def get_single_crop_dataset(image, label, params):
             num_parallel_calls=tf.data.AUTOTUNE
         )
     ds_train = ds_train.batch(params["batch_size"])
+
+    return ds_train
+
+
+def get_online_dataset(data, params):
+    if params["min_scale"] < 0.0:
+        scale_range = (1.0 / params["max_scale"], params["max_scale"])
+    else:
+        scale_range = (params["min_scale"], params["max_scale"])
+
+    def gen_train():
+        for image, label in data:
+            image = image.astype(np.float32) / 255.
+            yield image, label
+
+    samples_per_epoch = len(data)
+
+    ds_train = tf.data.Dataset.from_generator(
+        gen_train,
+        output_types=(tf.float32, tf.int32),
+        output_shapes=((None, None, 3), (None, None)),
+    )
+    ds_train = ds_train.shuffle(samples_per_epoch)
+    ds_train = ds_train.map(
+        lambda im, gt: random_resize_aug(scale_range),
+        num_parallel_calls=tf.data.AUTOTUNE,
+    )
+    ds_train = ds_train.map(
+        RandomRotation(params["rotation_angle"]),
+        num_parallel_calls=tf.data.AUTOTUNE,
+    )
+    if "hue_jitter" in params and "sat_jitter" in params and "val_jitter" in params:
+        color_jitter = ColorJitter(
+            params["hue_jitter"], params["sat_jitter"], params["val_jitter"])
+        ds_train = ds_train.map(
+            lambda x, y: (color_jitter(x), y),
+            num_parallel_calls=tf.data.AUTOTUNE,
+        )
+    ds_train = ds_train.map(
+        lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
+    )
+    ds_train = ds_train.map(
+        random_horizontal_flip,
+        num_parallel_calls=tf.data.AUTOTUNE,
+    )
+    if "color_transfer_probability" in params:
+        color_means = np.load('means_training_set.npy')
+        color_means = tf.constant(color_means, tf.float32)
+        color_transfer = ColorTransfer(
+            color_means,
+            params["color_transfer_probability"])
+        ds_train = ds_train.map(
+            lambda x, y: (color_transfer(x), y),
+            num_parallel_calls=tf.data.AUTOTUNE
+        )
+    if "noise_value" in params:
+        noise_fn = noise_aug(params["noise_value"])
+        ds_train = ds_train.map(
+            lambda x, y: (noise_fn(x), y),
+            num_parallel_calls=tf.data.AUTOTUNE
+        )
+    ds_train = ds_train.map(lambda x, y: pad_to_multiple_of(x, y, 64),
+                            num_parallel_calls=tf.data.AUTOTUNE)
+    ds_train = ds_train.batch(1)
 
     return ds_train

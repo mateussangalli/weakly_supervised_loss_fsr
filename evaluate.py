@@ -35,10 +35,13 @@ for filename, (im, gt) in zip(filenames, data):
     proba_path = os.path.join(proba_dir, filename)
     proba = imread(proba_path).astype(np.float32) / 255.
     dir_penalty = float(np.array(prp_penalty(proba[np.newaxis, ...])))
+
     pred_path = os.path.join(pred_dir, filename)
     pred = read_label(pred_path, one_hot=True)
+
     post_path = os.path.join(post_dir, filename)
     post = read_label(post_path, one_hot=True)
+
     gt = one_hot(gt)
     miou_pred = mean_iou(gt, pred)
     miou_post = mean_iou(gt, post)

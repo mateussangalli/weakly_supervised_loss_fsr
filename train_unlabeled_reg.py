@@ -180,19 +180,20 @@ with open(params_path, 'w') as fp:
 
 
 # define regularization weight schedules
-increase_ratio = args.max_weight / float(args.increase_epochs)
+alpha_coef = args.max_weight / (float(args.increase_epochs) * steps_per_epoch)
+height_coef = args.height_reg_weight / (float(args.increase_epochs) * steps_per_epoch)
 
 
 def alpha_schedule1(t):
-    return tf.minimum(tf.cast(t, tf.float32) * increase_ratio, args.max_weight)
+    return tf.minimum(tf.cast(t, tf.float32) * alpha_coef, args.max_weight)
 
 
 def alpha_schedule2(t):
-    return tf.minimum(tf.cast(t, tf.float32) * increase_ratio, args.height_reg_weight)
+    return tf.minimum(tf.cast(t, tf.float32) * height_coef, args.height_reg_weight)
 
 
 def alpha_schedule3(t):
-    return tf.minimum(tf.cast(t, tf.float32) * increase_ratio, args.height_reg_weight)
+    return tf.minimum(tf.cast(t, tf.float32) * height_coef, args.height_reg_weight)
 
 
 alpha_schedule = [alpha_schedule1, alpha_schedule2, alpha_schedule3]

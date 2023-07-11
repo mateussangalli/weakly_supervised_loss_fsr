@@ -62,7 +62,8 @@ parser.add_argument("--max_weight", type=float, default=1.0)
 parser.add_argument("--increase_epochs", type=int, default=10)
 parser.add_argument("--strel_size", type=int, default=20)
 parser.add_argument("--strel_iterations", type=int, default=1)
-parser.add_argument("--reduction", type=str, default='mean')
+parser.add_argument("--reduction", type=str, default="mean")
+parser.add_argument("--sym_bg", action="store_true")
 
 parser.add_argument("--hmax_sc", type=float, default=70.)
 parser.add_argument("--hmax_led", type=float, default=120.)
@@ -210,7 +211,8 @@ model = SemiSupUNetBuilder(
 ).build()
 directional_loss = PRPDirectionalPenalty(args.strel_size,
                                          args.strel_iterations,
-                                         reduction_type=args.reduction)
+                                         reduction_type=args.reduction,
+                                         sym_bg=args.sym_bg)
 height_penalty_sc = QuadraticPenaltyHeight(SC, args.hmax_sc)
 height_penalty_led = QuadraticPenaltyHeight(LED, args.hmax_led)
 
@@ -227,7 +229,8 @@ else:
 
 loss_unlab1 = PRPDirectionalPenalty(args.strel_size,
                                     args.strel_iterations,
-                                    reduction_type=args.reduction)
+                                    reduction_type=args.reduction,
+                                    sym_bg=args.sym_bg)
 loss_unlab2 = QuadraticPenaltyHeight(SC, args.hmax_sc)
 loss_unlab3 = QuadraticPenaltyHeight(LED, args.hmax_led)
 

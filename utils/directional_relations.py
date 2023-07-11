@@ -180,6 +180,7 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
                 raise ValueError('tnorm not recognized')
 
         self.return_map = return_map
+        self.sym_bg = sym_bg
 
         self.reduction_type = reduction_type
 

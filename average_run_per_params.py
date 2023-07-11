@@ -30,12 +30,18 @@ for run_id in os.listdir(args.runs_dir):
         results[key] = {}
         for column in df:
             results[key][column] = []
+            results[key]['num_runs'] = 0
 
     for column in df:
         results[key][column].append(df[column][0])
+    results[key]['num_runs'] += 1
 
 for k, v in results.items():
     print(f'{k}:')
+    num_runs = v['num_runs']
+    print(f'   num_runs: {num_runs}')
     for k2, v2 in v.items():
+        if k2 == 'num_runs':
+            continue
         v2 = np.mean(v2)
         print(f'   {k2}: {v2}')

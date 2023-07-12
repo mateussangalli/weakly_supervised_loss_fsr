@@ -47,7 +47,7 @@ def log_barrier_both_sides(z, t, vmin, vmax):
 
 
 class LogBarrierHeight(tf.keras.regularizers.Regularizer):
-    def __init__(self, class_num, vmin, vmax, t_schedule, t=1., reduce=True, **kwargs):
+    def __init__(self, class_num, vmin, vmax, t_schedule, t=1., reduce=True, apply_on_mean=True, **kwargs):
         super().__init__(**kwargs)
         self.class_num = class_num
         self.vmin = vmin
@@ -55,6 +55,7 @@ class LogBarrierHeight(tf.keras.regularizers.Regularizer):
         self.t = tf.Variable(t, trainable=False)
         self.t_schedule = t_schedule
         self.reduce = reduce
+        self.apply_on_mean = apply_on_mean
 
     def update(self, step):
         step = tf.cast(step, tf.float32)
@@ -67,9 +68,12 @@ class LogBarrierHeight(tf.keras.regularizers.Regularizer):
         config['vmin'] = self.vmin
         config['t'] = self.t
         config['reduce'] = self.reduce
+        config['apply_on_mean'] = self.apply_on_mean
 
     def __call__(self, proba):
         height = get_height(proba, class_num=self.class_num)
+        if self.apply_on_mean:
+            height = tf.reduce_mean(height, 1)
         loss_value = log_barrier_both_sides(height, self.t, self.vmin, self.vmax)
         if self.reduce:
             return tf.reduce_mean(loss_value)
@@ -77,7 +81,16 @@ class LogBarrierHeight(tf.keras.regularizers.Regularizer):
 
 
 class LogBarrierHeightRatio(tf.keras.regularizers.Regularizer):
-    def __init__(self, class_enum, class_denom, vmin, vmax, t_schedule, t=1., reduce=True, **kwargs):
+    def __init__(self,
+                 class_enum,
+                 class_denom,
+                 vmin,
+                 vmax,
+                 t_schedule,
+                 t=1.,
+                 reduce=True,
+                 apply_on_mean=True,
+                 **kwargs):
         super().__init__(**kwargs)
         self.class_enum = class_enum
         self.class_denom = class_denom
@@ -86,6 +99,7 @@ class LogBarrierHeightRatio(tf.keras.regularizers.Regularizer):
         self.t = tf.Variable(t, trainable=False)
         self.t_schedule = t_schedule
         self.reduce = reduce
+        self.apply_on_mean = apply_on_mean
 
     def update(self, step):
         step = tf.cast(step, tf.float32)
@@ -99,11 +113,14 @@ class LogBarrierHeightRatio(tf.keras.regularizers.Regularizer):
         config['vmin'] = self.vmin
         config['t'] = self.t
         config['reduce'] = self.reduce
+        config['apply_on_mean'] = self.apply_on_mean
 
     def __call__(self, proba):
         height_enum = get_height(proba, class_num=self.class_enum)
         height_denom = get_height(proba, class_num=self.class_denom)
         ratio = (height_enum + EPS) / (height_denom + EPS)
+        if self.apply_on_mean:
+            ratio = tf.reduce_mean(ratio, 1)
         loss_value = log_barrier_both_sides(ratio, self.t, self.vmin, self.vmax)
         if self.reduce:
             return tf.reduce_mean(loss_value)
@@ -125,7 +142,7 @@ if __name__ == "__main__":
 
     t_values = [1., 3., 10., 20.]
     for t in t_values:
-        loss = LogBarrierHeight(0, vmin, vmax, t, reduce=False)(im)
+        loss = LogBarrierHeight(0, vmin, vmax, lambda _: t, t, reduce=False, apply_on_mean=False)(im)
         loss = np.array(loss)[0, :]
         plt.plot(loss, label=f'{t=}')
     plt.legend()

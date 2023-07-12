@@ -163,9 +163,14 @@ def t_schedule(step):
 
 
 loss_functions = {
-    'sc_led_ratio': LogBarrierHeightRatio(LED, SC, args.led_sc_ratio_min, args.led_sc_ratio_max, t_schedule),
-    'sc_height': LogBarrierHeight(SC, args.hmin_sc, args.hmax_sc, t_schedule),
-    'led_height': LogBarrierHeight(LED, args.hmin_led, args.hmax_led, t_schedule),
+    'sc_led_ratio': LogBarrierHeightRatio(LED,
+                                          SC,
+                                          args.led_sc_ratio_min,
+                                          args.led_sc_ratio_max,
+                                          t_schedule,
+                                          apply_on_mean=True),
+    'sc_height': LogBarrierHeight(SC, args.hmin_sc, args.hmax_sc, t_schedule, apply_on_mean=True),
+    'led_height': LogBarrierHeight(LED, args.hmin_led, args.hmax_led, t_schedule, apply_on_mean=True),
     'directional': PRPDirectionalPenalty(args.strel_size,
                                          args.strel_iterations,
                                          reduction_type=args.reduction,

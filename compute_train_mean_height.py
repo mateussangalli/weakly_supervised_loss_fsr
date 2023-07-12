@@ -16,13 +16,34 @@ args = parser.parse_args()
 
 # load data
 
+def get_height(gt, class_num):
+    mask = gt == class_num
+    return np.sum(mask, 0)
 
-data_train = read_dataset(args.data_root, "train", LABELED_IMAGES)
 
-for name, (_, gt) in zip(LABELED_IMAGES, data_train):
-    gt = np.eye(3)[gt]
-    mean_height_sc = float(get_mean_height(gt[np.newaxis, ...], SC))
-    mean_height_led = float(get_mean_height(gt[np.newaxis, ...], LED))
-    print(f'image: {name}')
-    print(f'{mean_height_sc=}')
-    print(f'{mean_height_led=}')
+
+data_train = read_dataset(args.data_root, "train")
+
+for i, (_, gt) in enumerate(data_train):
+    heights_sc = get_height(gt, SC)
+    heights_led = get_height(gt, LED)
+    min_sc = np.min(heights_sc)
+    max_sc = np.max(heights_sc)
+    mean_sc = np.mean(heights_sc)
+    min_led = np.min(heights_led)
+    max_led = np.max(heights_led)
+    mean_led = np.mean(heights_led)
+    min_ratio = np.min(heights_led / heights_sc)
+    max_ratio = np.max(heights_led / heights_sc)
+    mean_ratio = np.mean(heights_led / heights_sc)
+
+    print(f'image {i}:')
+    print(f'{min_ratio=}')
+    print(f'{max_ratio=}')
+    print(f'{mean_ratio=}')
+    print(f'{min_led=}')
+    print(f'{max_led=}')
+    print(f'{mean_led=}')
+    print(f'{min_sc=}')
+    print(f'{max_sc=}')
+    print(f'{mean_sc=}')

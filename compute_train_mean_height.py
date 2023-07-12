@@ -24,6 +24,9 @@ def get_height(gt, class_num):
 
 data_train = read_dataset(args.data_root, "train")
 
+mean_heights_sc = list()
+mean_heights_led = list()
+mean_ratios = list()
 for i, (_, gt) in enumerate(data_train):
     heights_sc = get_height(gt, SC)
     heights_led = get_height(gt, LED)
@@ -37,6 +40,10 @@ for i, (_, gt) in enumerate(data_train):
     max_ratio = np.max(heights_led / heights_sc)
     mean_ratio = np.mean(heights_led / heights_sc)
 
+    mean_heights_sc.append(mean_sc)
+    mean_heights_led.append(mean_led)
+    mean_ratios.append(mean_ratio)
+
     print(f'image {i}:')
     print(f'{min_ratio=}')
     print(f'{max_ratio=}')
@@ -47,3 +54,7 @@ for i, (_, gt) in enumerate(data_train):
     print(f'{min_sc=}')
     print(f'{max_sc=}')
     print(f'{mean_sc=}')
+
+print(f'min sc: {np.min(mean_heights_sc)}, max sc: {np.max(mean_heights_sc)}')
+print(f'min led: {np.min(mean_heights_led)}, max led: {np.max(mean_heights_led)}')
+print(f'min ratios: {np.min(mean_ratios)}, max ratios: {np.max(mean_ratios)}')

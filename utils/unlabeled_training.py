@@ -1,6 +1,60 @@
 import tensorflow as tf
 import collections
 
+class UnsupModel(tf.keras.Model):
+    """
+    Subclass of the tf.keras.Model class that incorporates unlabeled data into the training loop.
+    The loss function of the unlabeled data takes a single argument (y_pred).
+        Serializing the loss function and optimizer are not supported.
+        sample_weights are not supported
+    """
+    def __init__(self, *args, alpha=0., num_losses=1, **kwargs):
+        super(UnsupModel, self).__init__(*args, **kwargs)
+        if isinstance(alpha, float):
+            self.alpha_schedule = [lambda _: alpha] * num_losses
+        else:
+            if isinstance(alpha, list):
+                self.alpha_schedule = alpha
+            else:
+                self.alpha_schedule = [alpha] * num_losses
+
+    def compile(self, optimizer, losses, **kwargs):
+        # WARN: if you load this model you probably have to call this function again
+        # WARN: also when you call evaluate it will not use any of these losses
+        super(SemiSupModel, self).compile(**kwargs)
+        self.optimizer = tf.keras.optimizers.get(optimizer)
+        self.losses = losses
+
+    def train_step(self, data):
+        x, y = data
+
+        step = self.optimizer.iterations
+        with tf.GradientTape() as tape:
+            y_pred = self(x, training=True)
+            loss_value = 0.
+            for alpha_schd, loss_fn in zip(self.alpha_schedule, self.losses):
+                alpha = alpha_schd(step)
+                loss_value += alpha * loss_fn(y_pred)
+
+        # Compute gradients and update weights
+        trainable_vars = self.trainable_variables
+        gradients = tape.gradient(loss_value, trainable_vars)
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+
+        # Update losses
+        for loss_fn in self.losses:
+            if hasattr(loss_fn, 'update') and callable(loss_fn.update):
+                loss_fn.update(step)
+
+        # Update metrics
+        self.compiled_metrics.update_state(y, y_pred)
+
+        # Return a dict of metrics for monitoring
+        results = {m.name: m.result() for m in self.metrics}
+        results['loss'] = loss_value
+
+        return results
+
 
 class SemiSupModel(tf.keras.Model):
     """

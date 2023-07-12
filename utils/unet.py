@@ -3,7 +3,7 @@ from keras.layers import (Activation, Add, BatchNormalization, Concatenate,
                           Input, Layer, LayerNormalization, MaxPool2D,
                           Multiply, UpSampling2D)
 from keras.models import Model
-from .unlabeled_training import SemiSupModel, SemiSupModelPseudo
+from .unlabeled_training import SemiSupModel, SemiSupModelPseudo, UnsupModel
 
 
 class UNetBuilder:
@@ -205,3 +205,29 @@ class SemiSupPseudoUNetBuilder(UNetBuilder):
         out = Activation(self.last_layer_activation, name='output_layer')(out)
 
         return SemiSupModelPseudo(inputs, out, alpha=self.alpha)
+
+
+class UnsupUNetBuilder(UNetBuilder):
+    def build(self):
+        inputs = Input(self.input_shape)
+        feature_maps = inputs
+        feature_maps = self.conv_block(feature_maps, self.filters[0])
+
+        pool = [feature_maps]
+        for i in range(1, self.depth + 1):
+            feature_maps = self.conv_block(
+                feature_maps, self.filters[i], strides=2)
+            if self.drop_rate >= 0.001:
+                feature_maps = Dropout(self.drop_rate)(feature_maps)
+            pool.append(feature_maps)
+
+        for i in range(1, self.depth + 1):
+            skip = pool[-i - 1]
+            feature_maps = self.conv_upsample_block(
+                feature_maps, skip, self.filters[-i - 1])
+
+        out = Conv2D(self.output_channels, kernel_size=3,
+                     padding='same')(feature_maps)
+        out = Activation(self.last_layer_activation, name='output_layer')(out)
+
+        return UnsupModel(inputs, out)

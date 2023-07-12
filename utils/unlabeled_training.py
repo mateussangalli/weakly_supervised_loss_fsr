@@ -9,17 +9,7 @@ class UnsupModel(tf.keras.Model):
         Serializing the loss function and optimizer are not supported.
         sample_weights are not supported
     """
-    def __init__(self, *args, alpha=0., num_losses=1, **kwargs):
-        super(UnsupModel, self).__init__(*args, **kwargs)
-        if isinstance(alpha, float):
-            self.alpha_schedule = [lambda _: alpha] * num_losses
-        else:
-            if isinstance(alpha, list):
-                self.alpha_schedule = alpha
-            else:
-                self.alpha_schedule = [alpha] * num_losses
-
-    def compile(self, optimizer, loss_functions, **kwargs):
+    def compile(self, optimizer, loss_functions, alpha_schedules, **kwargs):
         """
         args:
             loss_functions is a dict where the values are the loss functions and the keys are their names
@@ -29,6 +19,7 @@ class UnsupModel(tf.keras.Model):
         super(UnsupModel, self).compile(**kwargs)
         self.optimizer = tf.keras.optimizers.get(optimizer)
         self.loss_functions = loss_functions
+        self.alpha_schedules = alpha_schedules
 
     def train_step(self, data):
         x = data
@@ -38,7 +29,8 @@ class UnsupModel(tf.keras.Model):
         with tf.GradientTape() as tape:
             y_pred = self(x, training=True)
             loss_value = 0.
-            for alpha_schd, (loss_name, loss_fn) in zip(self.alpha_schedule, self.loss_functions.items()):
+            for loss_name, loss_fn in self.loss_functions.items():
+                alpha_schd = self.alpha_schedules[loss_name]
                 alpha = alpha_schd(step)
                 loss_value += alpha * loss_fn(y_pred)
                 results[loss_name] = loss_value

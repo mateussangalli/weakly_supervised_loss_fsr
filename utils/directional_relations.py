@@ -1,6 +1,8 @@
 import numpy as np
 import tensorflow as tf
 
+from .size_regularization import log_barrier
+
 EPS = 1e-4
 
 
@@ -113,6 +115,7 @@ class StraightBelow:
                                    (1, 1, 1, 1))
         return out - inputs
 
+
 class StraightAbove:
     def __init__(self, distance, iterations):
         self.distance = distance
@@ -136,12 +139,14 @@ class StraightAbove:
                                    (1, 1, 1, 1))
         return out - inputs
 
+
 def product_tnorm(a, b):
     return a * b
 
 
 def lukasiewicz_tnorm(a, b):
     return tf.maximum(a + b - 1., 0.)
+
 
 class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
     def __init__(self,
@@ -233,6 +238,107 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
         config['dilation_type'] = self.dilation_type
         config['tnorm'] = self.tnorm
         config['return_map'] = self.return_map
+        config['sym_bg'] = self.sym_bg
+        config['reduction_type'] = self.reduction_type
+
+
+class PRPDirectionalLogBarrier(tf.keras.regularizers.Regularizer):
+    def __init__(self,
+                 distance,
+                 iterations,
+                 t_schedule,
+                 sc_class=0,
+                 le_class=2,
+                 bg_class=1,
+                 dilation_type='maxplus',
+                 tnorm='product',
+                 reduction_type='mean',
+                 return_map=False,
+                 sym_bg=False,
+                 t=1.,
+                 **kwargs):
+        self.distance = distance
+        self.iterations = iterations
+
+        self.sc_class = sc_class
+        self.le_class = le_class
+        self.bg_class = bg_class
+
+        self.dilation_type = dilation_type
+        if dilation_type == 'flat_line':
+            self.above = StraightAbove(distance, iterations)
+            self.below = StraightBelow(distance, iterations)
+        else:
+            self.above = Above(distance, iterations, dilation_type=dilation_type)
+            self.below = Below(distance, iterations, dilation_type=dilation_type)
+
+        if isinstance(tnorm, str):
+            if tnorm == 'product':
+                self.tnorm = product_tnorm
+            elif tnorm == 'lukasiewicz':
+                self.tnorm = product_tnorm
+            else:
+                raise ValueError('tnorm not recognized')
+
+        self.return_map = return_map
+        self.sym_bg = sym_bg
+
+        self.t = tf.Variable(1., trainable=False)
+        self.t_schedule = t_schedule
+
+    def update(self, step):
+        step = tf.cast(step, tf.float32)
+        self.t.assign(self.t_schedule(step))
+
+    def apply_log_barrier(self, values):
+        return log_barrier(values - 0.3, self.t)
+
+    def regularization_term(self, inputs):
+        prob_bg = tf.expand_dims(inputs[..., self.bg_class], -1)
+        prob_sc = tf.expand_dims(inputs[..., self.sc_class], -1)
+        prob_le = tf.expand_dims(inputs[..., self.le_class], -1)
+
+        above_sc = self.above(prob_sc)
+        below_sc = self.below(prob_sc)
+        below_le = self.below(prob_le)
+        above_le = self.above(prob_le)
+        above_bg = self.above(prob_bg)
+        below_bg = self.below(prob_bg)
+
+        sc_below_le = self.tnorm(prob_sc, below_le)
+        le_above_sc = self.tnorm(prob_le, above_sc)
+
+        bg_below_sc = self.tnorm(prob_bg, below_sc)
+        bg_above_le = self.tnorm(prob_bg, above_le)
+
+        map = self.apply_log_barrier(le_above_sc) + \
+            self.apply_log_barrier(sc_below_le) + \
+            self.apply_log_barrier(bg_above_le) + \
+            self.apply_log_barrier(bg_below_sc)
+        if self.sym_bg:
+            sc_above_bg = self.tnorm(prob_sc, above_bg)
+            le_below_bg = self.tnorm(prob_le, below_bg)
+            map += self.apply_log_barrier(sc_above_bg) + self.apply_log_barrier(le_below_bg)
+
+        if self.return_map:
+            return map
+
+        return tf.reduce_mean(map)
+
+    def __call__(self, pred):
+        return self.regularization_term(pred)
+
+    def get_config(self):
+        config = super().get_config()
+        config['distance'] = self.distance
+        config['iterations'] = self.iterations
+        config['sc_class'] = self.sc_class
+        config['le_class'] = self.le_class
+        config['bg_class'] = self.bg_class
+        config['dilation_type'] = self.dilation_type
+        config['tnorm'] = self.tnorm
+        config['return_map'] = self.return_map
+        config['sym_bg'] = self.sym_bg
 
 
 if __name__ == '__main__':

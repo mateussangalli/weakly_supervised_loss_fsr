@@ -9,7 +9,7 @@ from tensorflow.keras.callbacks import CSVLogger, LearningRateScheduler
 
 from utils.data_generation import get_online_dataset
 from utils.data_loading import read_dataset
-from utils.directional_relations import PRPDirectionalPenalty
+from utils.directional_relations import PRPDirectionalPenalty, PRPDirectionalLogBarrier
 from utils.jaccard_loss import OneHotMeanIoU
 from utils.size_regularization import LogBarrierHeight, LogBarrierHeightRatio, get_mean_height
 from utils.unet import UnsupUNetBuilder
@@ -25,7 +25,6 @@ parser.add_argument("--data_root", type=str, default="~/weak_supervision_data")
 parser.add_argument("--runs_dir", type=str, default="runs/no_pseudo_runs")
 
 # training arguments
-parser.add_argument("--batch_size", type=int, default=96)
 parser.add_argument("--epochs", type=int, default=30)
 parser.add_argument("--starting_lr", type=float, default=1e-3)
 parser.add_argument("--warmup_epochs", type=int, default=20)
@@ -58,6 +57,7 @@ parser.add_argument("--strel_size", type=int, default=20)
 parser.add_argument("--strel_iterations", type=int, default=1)
 parser.add_argument("--reduction", type=str, default="mean")
 parser.add_argument("--sym_bg", action="store_true")
+parser.add_argument("--direction_log_barrier", action="store_true")
 
 parser.add_argument("--hmin_sc", type=float, default=10.)
 parser.add_argument("--hmax_sc", type=float, default=180.)
@@ -162,6 +162,21 @@ def t_schedule(step):
     return 1. + tf.cast(step, tf.float32) * args.t_increase_ratio
 
 
+if args.direction_log_barrier:
+    directional_loss = PRPDirectionalLogBarrier(
+        args.strel_size,
+        args.strel_iterations,
+        t_schedule,
+        reduction_type=args.reduction,
+        sym_bg=args.sym_bg)
+else:
+    directional_loss = PRPDirectionalPenalty(
+        args.strel_size,
+        args.strel_iterations,
+        reduction_type=args.reduction,
+        sym_bg=args.sym_bg)
+
+
 loss_functions = {
     'sc_led_ratio': LogBarrierHeightRatio(LED,
                                           SC,
@@ -171,10 +186,7 @@ loss_functions = {
                                           apply_on_mean=True),
     'sc_height': LogBarrierHeight(SC, args.hmin_sc, args.hmax_sc, t_schedule, apply_on_mean=True),
     'led_height': LogBarrierHeight(LED, args.hmin_led, args.hmax_led, t_schedule, apply_on_mean=True),
-    'directional': PRPDirectionalPenalty(args.strel_size,
-                                         args.strel_iterations,
-                                         reduction_type=args.reduction,
-                                         sym_bg=args.sym_bg)
+    'directional': directional_loss
 }
 alpha_schedules = {
     'sc_led_ratio': lambda _: 1.,

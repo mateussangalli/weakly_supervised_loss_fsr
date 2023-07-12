@@ -1,6 +1,7 @@
 import tensorflow as tf
 import collections
 
+
 class UnsupModel(tf.keras.Model):
     """
     Subclass of the tf.keras.Model class that incorporates unlabeled data into the training loop.
@@ -18,23 +19,29 @@ class UnsupModel(tf.keras.Model):
             else:
                 self.alpha_schedule = [alpha] * num_losses
 
-    def compile(self, optimizer, losses, **kwargs):
+    def compile(self, optimizer, loss_functions, **kwargs):
+        """
+        args:
+            loss_functions is a dict where the values are the loss functions and the keys are their names
+        """
         # WARN: if you load this model you probably have to call this function again
         # WARN: also when you call evaluate it will not use any of these losses
-        super(SemiSupModel, self).compile(**kwargs)
+        super(UnsupModel, self).compile(**kwargs)
         self.optimizer = tf.keras.optimizers.get(optimizer)
-        self.losses = losses
+        self.loss_functions = loss_functions
 
     def train_step(self, data):
-        x, y = data
+        x = data
 
         step = self.optimizer.iterations
+        results = {}
         with tf.GradientTape() as tape:
             y_pred = self(x, training=True)
             loss_value = 0.
-            for alpha_schd, loss_fn in zip(self.alpha_schedule, self.losses):
+            for alpha_schd, (loss_name, loss_fn) in zip(self.alpha_schedule, self.loss_functions.items()):
                 alpha = alpha_schd(step)
                 loss_value += alpha * loss_fn(y_pred)
+                results[loss_name] = loss_value
 
         # Compute gradients and update weights
         trainable_vars = self.trainable_variables
@@ -42,16 +49,11 @@ class UnsupModel(tf.keras.Model):
         self.optimizer.apply_gradients(zip(gradients, trainable_vars))
 
         # Update losses
-        for loss_fn in self.losses:
+        for _, loss_fn in self.loss_functions.items():
             if hasattr(loss_fn, 'update') and callable(loss_fn.update):
                 loss_fn.update(step)
 
-        # Update metrics
-        self.compiled_metrics.update_state(y, y_pred)
-
-        # Return a dict of metrics for monitoring
-        results = {m.name: m.result() for m in self.metrics}
-        results['loss'] = loss_value
+        results['total_loss'] = loss_value
 
         return results
 

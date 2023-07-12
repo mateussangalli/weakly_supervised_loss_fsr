@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+EPS = 1e-5
 
 def get_mean_height(pred, class_num=0):
     heights = tf.reduce_sum(pred[:, :, :, class_num], 1)
@@ -45,13 +46,18 @@ def log_barrier_both_sides(z, t, vmin, vmax):
 
 
 class LogBarrierHeight(tf.keras.regularizers.Regularizer):
-    def __init__(self, class_num, vmin, vmax, t, reduce=True, **kwargs):
+    def __init__(self, class_num, vmin, vmax, t_schedule, t=1., reduce=True, **kwargs):
         super().__init__(**kwargs)
         self.class_num = class_num
         self.vmin = vmin
         self.vmax = vmax
         self.t = t
+        self.t_schedule = t_schedule
         self.reduce = reduce
+
+    def update(self, step):
+        step = tf.cast(step, tf.float32)
+        self.t = self.t_schedule(step)
 
     def get_config(self):
         config = super().get_config()
@@ -64,6 +70,40 @@ class LogBarrierHeight(tf.keras.regularizers.Regularizer):
     def __call__(self, proba):
         height = get_height(proba, class_num=self.class_num)
         loss_value = log_barrier_both_sides(height, self.t, self.vmin, self.vmax)
+        if self.reduce:
+            return tf.reduce_mean(loss_value)
+        return loss_value
+
+
+class LogBarrierHeightRatio(tf.keras.regularizers.Regularizer):
+    def __init__(self, class_enum, class_denom, vmin, vmax, t_schedule, t=1., reduce=True, **kwargs):
+        super().__init__(**kwargs)
+        self.class_enum = class_enum
+        self.class_denom = class_denom
+        self.vmin = vmin
+        self.vmax = vmax
+        self.t = t
+        self.t_schedule = t_schedule
+        self.reduce = reduce
+
+    def update(self, step):
+        step = tf.cast(step, tf.float32)
+        self.t = self.t_schedule(step)
+
+    def get_config(self):
+        config = super().get_config()
+        config['class_enum'] = self.class_enum
+        config['class_denom'] = self.class_denom
+        config['vmax'] = self.vmax
+        config['vmin'] = self.vmin
+        config['t'] = self.t
+        config['reduce'] = self.reduce
+
+    def __call__(self, proba):
+        height_enum = get_height(proba, class_num=self.class_enum)
+        height_denom = get_height(proba, class_num=self.class_denom)
+        ratio = (height_enum + EPS) / (height_denom + EPS)
+        loss_value = log_barrier_both_sides(ratio, self.t, self.vmin, self.vmax)
         if self.reduce:
             return tf.reduce_mean(loss_value)
         return loss_value

@@ -92,7 +92,7 @@ data_unlabeled = read_dataset(args.data_root, "train")
 # just to be sure...
 data_unlabeled = [(x, np.zeros_like(y)) for x, y in data_unlabeled]
 
-data_val = read_dataset(args.data_root, "val", LABELED_IMAGES_VAL)
+data_val = read_dataset(args.data_root, "val")
 data_val = [
     (crop_to_multiple_of(im, 2**args.depth),
      crop_to_multiple_of(gt, 2**args.depth)) for (im, gt) in data_val
@@ -181,8 +181,8 @@ with open(params_path, 'w') as fp:
 
 
 # define regularization weight schedules
-alpha_coef = args.max_weight / (float(args.increase_epochs) * steps_per_epoch)
-height_coef = args.height_reg_weight / (float(args.increase_epochs) * steps_per_epoch)
+alpha_coef = args.max_weight / float(args.increase_epochs * steps_per_epoch)
+height_coef = args.height_reg_weight / float(args.increase_epochs * steps_per_epoch)
 
 
 def alpha_schedule1(t):

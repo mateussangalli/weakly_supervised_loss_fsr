@@ -6,16 +6,14 @@ from datetime import datetime
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.callbacks import CSVLogger, LearningRateScheduler
-from tensorflow.keras.losses import CategoricalCrossentropy
 
 from utils.data_generation import get_online_dataset
 from utils.data_loading import read_dataset
 from utils.directional_relations import PRPDirectionalPenalty
-from utils.jaccard_loss import OneHotMeanIoU, jaccard_loss_mean_wrapper
+from utils.jaccard_loss import OneHotMeanIoU
 from utils.size_regularization import LogBarrierHeight, LogBarrierHeightRatio, get_mean_height
 from utils.unet import UnsupUNetBuilder
 from utils.utils import crop_to_multiple_of
-from labeled_images import LABELED_IMAGES
 
 SC = 0
 LED = 2
@@ -165,7 +163,7 @@ def t_schedule(step):
 
 
 loss_functions = {
-    'sc_led_ratio': LogBarrierHeightRatio(LED, SC, args.led_sc_ratio_min, args.led_sc_ration_max, t_schedule),
+    'sc_led_ratio': LogBarrierHeightRatio(LED, SC, args.led_sc_ratio_min, args.led_sc_ratio_max, t_schedule),
     'sc_height': LogBarrierHeight(SC, args.hmin_sc, args.hmax_sc, t_schedule),
     'led_height': LogBarrierHeight(LED, args.hmin_led, args.hmax_led, t_schedule),
     'directional': PRPDirectionalPenalty(args.strel_size,

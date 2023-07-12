@@ -2,14 +2,15 @@ import tensorflow as tf
 
 EPS = 1e-5
 
+
 def get_mean_height(pred, class_num=0):
     heights = tf.reduce_sum(pred[:, :, :, class_num], 1)
     mean = tf.reduce_mean(heights, 1)
     return mean
 
+
 def get_height(pred, class_num=0):
     return tf.reduce_sum(pred[:, :, :, class_num], 1)
-
 
 
 class QuadraticPenaltyHeight(tf.keras.regularizers.Regularizer):
@@ -51,13 +52,13 @@ class LogBarrierHeight(tf.keras.regularizers.Regularizer):
         self.class_num = class_num
         self.vmin = vmin
         self.vmax = vmax
-        self.t = t
+        self.t = tf.Variable(t, trainable=False)
         self.t_schedule = t_schedule
         self.reduce = reduce
 
     def update(self, step):
         step = tf.cast(step, tf.float32)
-        self.t = self.t_schedule(step)
+        self.t.assign(self.t_schedule(step))
 
     def get_config(self):
         config = super().get_config()
@@ -82,13 +83,13 @@ class LogBarrierHeightRatio(tf.keras.regularizers.Regularizer):
         self.class_denom = class_denom
         self.vmin = vmin
         self.vmax = vmax
-        self.t = t
+        self.t = tf.Variable(t, trainable=False)
         self.t_schedule = t_schedule
         self.reduce = reduce
 
     def update(self, step):
         step = tf.cast(step, tf.float32)
-        self.t = self.t_schedule(step)
+        self.t.assign(self.t_schedule(step))
 
     def get_config(self):
         config = super().get_config()

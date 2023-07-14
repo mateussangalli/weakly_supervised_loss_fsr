@@ -252,10 +252,10 @@ class PRPDirectionalLogBarrier(tf.keras.regularizers.Regularizer):
                  bg_class=1,
                  dilation_type='maxplus',
                  tnorm='product',
-                 reduction_type='mean',
                  return_map=False,
                  sym_bg=False,
                  t=1.,
+                 barrier_threshold=.3,
                  **kwargs):
         self.distance = distance
         self.iterations = iterations
@@ -283,6 +283,7 @@ class PRPDirectionalLogBarrier(tf.keras.regularizers.Regularizer):
         self.return_map = return_map
         self.sym_bg = sym_bg
 
+        self.barrier_threshold = barrier_threshold
         self.t = tf.Variable(1., trainable=False)
         self.t_schedule = t_schedule
 
@@ -291,7 +292,7 @@ class PRPDirectionalLogBarrier(tf.keras.regularizers.Regularizer):
         self.t.assign(self.t_schedule(step))
 
     def apply_log_barrier(self, values):
-        return log_barrier(values - 0.3, self.t)
+        return log_barrier(values - self.barrier_threshold, self.t)
 
     def regularization_term(self, inputs):
         prob_bg = tf.expand_dims(inputs[..., self.bg_class], -1)
@@ -338,6 +339,7 @@ class PRPDirectionalLogBarrier(tf.keras.regularizers.Regularizer):
         config['tnorm'] = self.tnorm
         config['return_map'] = self.return_map
         config['sym_bg'] = self.sym_bg
+        config['barrier_threshold'] = self.barrier_threshold
 
 
 if __name__ == '__main__':

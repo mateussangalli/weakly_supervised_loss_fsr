@@ -96,37 +96,6 @@ class UNetBuilder:
 
 
 class SemiSupUNetBuilder(UNetBuilder):
-    def __init__(self,
-                 input_shape,
-                 filters_start,
-                 depth,
-                 alpha=0.,
-                 output_channels=3,
-                 kernel_size=3,
-                 normalization='none',
-                 batch_norm_momentum=.99,
-                 normalize_all=False,
-                 activation='leaky_relu',
-                 last_layer_activation='softmax',
-                 drop_rate=0):
-        super().__init__(
-            input_shape,
-            filters_start,
-            depth,
-            output_channels,
-            kernel_size,
-            normalization,
-            batch_norm_momentum,
-            normalize_all,
-            activation,
-            last_layer_activation,
-            drop_rate)
-        self.alpha = alpha
-        if not isinstance(alpha, list):
-            self.num_unlabeled_losses = 1
-        else: 
-            self.num_unlabeled_losses = len(alpha)
-
     def build(self):
         inputs = Input(self.input_shape)
         feature_maps = inputs
@@ -149,9 +118,7 @@ class SemiSupUNetBuilder(UNetBuilder):
                      padding='same')(feature_maps)
         out = Activation(self.last_layer_activation, name='output_layer')(out)
 
-        return SemiSupModel(inputs, out,
-                            alpha=self.alpha,
-                            num_unlabeled_losses=self.num_unlabeled_losses)
+        return SemiSupModel(inputs, out)
 
 
 class SemiSupPseudoUNetBuilder(UNetBuilder):

@@ -9,7 +9,7 @@ class UnsupModel(tf.keras.Model):
         Serializing the loss function and optimizer are not supported.
         sample_weights are not supported
     """
-    def compile(self, optimizer, loss_functions, alpha_schedules, **kwargs):
+    def compile(self, optimizer, loss_functions, alpha_schedules=None, **kwargs):
         """
         args:
             loss_functions is a dict where the values are the loss functions and the keys are their names
@@ -19,7 +19,12 @@ class UnsupModel(tf.keras.Model):
         super(UnsupModel, self).compile(**kwargs)
         self.optimizer = tf.keras.optimizers.get(optimizer)
         self.loss_functions = loss_functions
+        if alpha_schedules is None:
+            alpha_schedules = {}
         self.alpha_schedules = alpha_schedules
+        for k in self.loss_functions.keys():
+            if k not in self.alpha_schedules:
+                self.alpha_schedules[k] = lambda _: 1.
 
     def train_step(self, data):
         x = data
@@ -37,8 +42,9 @@ class UnsupModel(tf.keras.Model):
             for loss_name, loss_fn in self.loss_functions.items():
                 alpha_schd = self.alpha_schedules[loss_name]
                 alpha = alpha_schd(step)
-                loss_value += alpha * loss_fn(y_pred)
-                results[loss_name] = loss_value
+                loss_tmp = loss_fn(y_pred)
+                loss_value += alpha * loss_tmp
+                results[loss_name] = loss_tmp
 
         # Compute gradients and update weights
         trainable_vars = self.trainable_variables
@@ -57,30 +63,30 @@ class SemiSupModel(tf.keras.Model):
         Serializing the loss function and optimizer are not supported.
         sample_weights are not supported
     """
-    def __init__(self, *args, alpha=0., num_unlabeled_losses=1, **kwargs):
-        super(SemiSupModel, self).__init__(*args, **kwargs)
-        if isinstance(alpha, float):
-            self.alpha_schedule = [lambda _: alpha] * num_unlabeled_losses
-        else:
-            if isinstance(alpha, list):
-                self.alpha_schedule = alpha
-            else:
-                self.alpha_schedule = [alpha] * num_unlabeled_losses
-
-    def compile(self, optimizer, loss_labeled, loss_unlabeled, **kwargs):
+    def compile(self, optimizer, loss_labeled, losses_unlabeled, alpha_schedules=None, **kwargs):
         # WARN: if you load this model you probably have to call this function again
         # WARN: also when you call evaluate it will not use any of these losses
         super(SemiSupModel, self).compile(**kwargs)
         self.optimizer = tf.keras.optimizers.get(optimizer)
         self.loss_labeled = tf.keras.losses.get(loss_labeled)
-        if isinstance(loss_unlabeled, list):
-            self.loss_unlabeled = [tf.keras.regularizers.get(loss_fn) for loss_fn in loss_unlabeled]
-        else:
-            self.loss_unlabeled = [tf.keras.regularizers.get(loss_unlabeled)]
+        self.losses_unlabeled = losses_unlabeled
+        if alpha_schedules is None:
+            alpha_schedules = {}
+        self.alpha_schedules = alpha_schedules
+        for k in self.losses_unlabeled.keys():
+            if k not in self.alpha_schedules:
+                self.alpha_schedules[k] = lambda _: 1.
 
     def train_step(self, data):
         (x_l, y), x_u = data
 
+        step = self.optimizer.iterations
+        # Update losses
+        for _, loss_fn in self.losses_unlabeled.items():
+            if hasattr(loss_fn, 'update') and callable(loss_fn.update):
+                loss_fn.update(step)
+
+        results = {}
         with tf.GradientTape() as tape:
             # Forward pass on labeled data
             y_pred = self(x_l, training=True)
@@ -89,9 +95,12 @@ class SemiSupModel(tf.keras.Model):
             # Forward pass on unlabeled data
             y_u_pred = self(x_u, training=True)
             loss_unlab_value = 0.
-            for alpha_schd, loss_fn in zip(self.alpha_schedule, self.loss_unlabeled):
-                alpha = alpha_schd(self.optimizer.iterations)
-                loss_unlab_value += alpha * loss_fn(y_u_pred)
+            for loss_name, loss_fn in self.losses_unlabeled.items():
+                alpha_schd = self.alpha_schedules[loss_name]
+                alpha = alpha_schd(step)
+                loss_tmp = loss_fn(y_u_pred)
+                loss_unlab_value += alpha * loss_tmp
+                results[loss_name] = loss_tmp
 
             # Compute total loss with weight alpha(epoch)
             total_loss = loss_lab_value + loss_unlab_value
@@ -105,9 +114,9 @@ class SemiSupModel(tf.keras.Model):
         self.compiled_metrics.update_state(y, y_pred)
 
         # Return a dict of metrics for monitoring
-        results = {m.name: m.result() for m in self.metrics}
+        for m in self.metrics:
+            results[m.name] = m.result()
         results['loss_labeled'] = loss_lab_value
-        results['loss_unlabeled'] = loss_unlab_value
         results['total_loss'] = total_loss
 
         return results

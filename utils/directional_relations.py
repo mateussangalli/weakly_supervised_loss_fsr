@@ -158,7 +158,6 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
                  dilation_type='maxplus',
                  tnorm='product',
                  reduction_type='mean',
-                 return_map=False,
                  sym_bg=False,
                  **kwargs):
         self.distance = distance
@@ -184,7 +183,6 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
             else:
                 raise ValueError('tnorm not recognized')
 
-        self.return_map = return_map
         self.sym_bg = sym_bg
 
         self.reduction_type = reduction_type
@@ -213,15 +211,14 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
             le_below_bg = self.tnorm(prob_le, below_bg)
             pixelwise_loss += sc_above_bg + le_below_bg
 
-        if self.return_map:
-            return pixelwise_loss
-
         if self.reduction_type == 'squared_mean':
             penalty = tf.reduce_mean(pixelwise_loss**2)
         elif self.reduction_type == 'mean':
             penalty = tf.reduce_mean(pixelwise_loss)
+        elif self.reduction_type == 'sum':
+            penalty = tf.reduce_sum(pixelwise_loss)
         else:
-            raise ValueError("unrecognized reduction argument")
+            penalty = pixelwise_loss
 
         return penalty
 
@@ -237,7 +234,6 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
         config['bg_class'] = self.bg_class
         config['dilation_type'] = self.dilation_type
         config['tnorm'] = self.tnorm
-        config['return_map'] = self.return_map
         config['sym_bg'] = self.sym_bg
         config['reduction_type'] = self.reduction_type
 

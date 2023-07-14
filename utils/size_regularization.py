@@ -137,10 +137,10 @@ if __name__ == "__main__":
         im[:, :i, i, :] = 1.
     plt.imshow(im[0, ...])
     plt.show()
-    vmin = 30.
-    vmax = float(N - 30)
+    vmin = 80.
+    vmax = float(N - vmin)
 
-    t_values = [1., 3., 10., 20.]
+    t_values = (np.arange(1, 12) / 10).astype(np.float32)
     for t in t_values:
         loss = LogBarrierHeight(0, vmin, vmax, lambda _: t, t, reduce=False, apply_on_mean=False)(im)
         loss = np.array(loss)[0, :]

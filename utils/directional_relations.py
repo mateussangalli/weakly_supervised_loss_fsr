@@ -207,19 +207,19 @@ class PRPDirectionalPenalty(tf.keras.regularizers.Regularizer):
         bg_below_sc = self.tnorm(prob_bg, below_sc)
         bg_above_le = self.tnorm(prob_bg, above_le)
 
-        map = le_above_sc + sc_below_le + bg_above_le + bg_below_sc
+        pixelwise_loss = le_above_sc + sc_below_le + bg_above_le + bg_below_sc
         if self.sym_bg:
             sc_above_bg = self.tnorm(prob_sc, above_bg)
             le_below_bg = self.tnorm(prob_le, below_bg)
-            map += sc_above_bg + le_below_bg
+            pixelwise_loss += sc_above_bg + le_below_bg
 
         if self.return_map:
-            return map
+            return pixelwise_loss
 
         if self.reduction_type == 'squared_mean':
-            penalty = tf.reduce_mean(map**2)
+            penalty = tf.reduce_mean(pixelwise_loss**2)
         elif self.reduction_type == 'mean':
-            penalty = tf.reduce_mean(map)
+            penalty = tf.reduce_mean(pixelwise_loss)
         else:
             raise ValueError("unrecognized reduction argument")
 
@@ -311,19 +311,18 @@ class PRPDirectionalLogBarrier(tf.keras.regularizers.Regularizer):
         bg_below_sc = self.tnorm(prob_bg, below_sc)
         bg_above_le = self.tnorm(prob_bg, above_le)
 
-        map = self.apply_log_barrier(le_above_sc) + \
-            self.apply_log_barrier(sc_below_le) + \
-            self.apply_log_barrier(bg_above_le) + \
-            self.apply_log_barrier(bg_below_sc)
+        pixelwise_loss = le_above_sc + sc_below_le + bg_above_le + bg_below_sc
         if self.sym_bg:
             sc_above_bg = self.tnorm(prob_sc, above_bg)
             le_below_bg = self.tnorm(prob_le, below_bg)
-            map += self.apply_log_barrier(sc_above_bg) + self.apply_log_barrier(le_below_bg)
+            pixelwise_loss += sc_above_bg + le_below_bg
+
+        pixelwise_loss = self.apply_log_barrier(pixelwise_loss)
 
         if self.return_map:
-            return map
+            return pixelwise_loss
 
-        return tf.reduce_mean(map)
+        return tf.reduce_mean(pixelwise_loss)
 
     def __call__(self, pred):
         return self.regularization_term(pred)

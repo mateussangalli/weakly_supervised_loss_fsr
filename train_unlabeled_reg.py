@@ -62,7 +62,7 @@ parser.add_argument("--max_weight", type=float, default=1.0)
 parser.add_argument("--increase_epochs", type=int, default=10)
 parser.add_argument("--strel_size", type=int, default=20)
 parser.add_argument("--strel_iterations", type=int, default=1)
-parser.add_argument("--reduction", type=str, default="mean")
+parser.add_argument("--reduction", type=str, default='mean')
 parser.add_argument("--sym_bg", action="store_true")
 parser.add_argument("--log_barrier_dir", action="store_true")
 parser.add_argument("--t_coef", type=float, default=0.1)
@@ -184,19 +184,17 @@ alpha_coef = args.max_weight / float(args.increase_epochs * steps_per_epoch)
 height_coef = args.height_reg_weight / float(args.increase_epochs * steps_per_epoch)
 
 
-def alpha_schedule1(t):
+def alpha_schedule_dir(t):
     return tf.minimum(tf.cast(t, tf.float32) * alpha_coef, args.max_weight)
 
 
-def alpha_schedule2(t):
+def alpha_schedule_hsc(t):
     return tf.minimum(tf.cast(t, tf.float32) * height_coef, args.height_reg_weight)
 
 
-def alpha_schedule3(t):
+def alpha_schedule_hled(t):
     return tf.minimum(tf.cast(t, tf.float32) * height_coef, args.height_reg_weight)
 
-
-alpha_schedule = [alpha_schedule1, alpha_schedule2, alpha_schedule3]
 
 # create model
 model = SemiSupUNetBuilder(
@@ -253,6 +251,9 @@ model.compile(
     {'directional_loss': loss_dir,
      'sc_height_loss': loss_hsc,
      'led_height_loss': loss_hled},
+    {'directional_loss': alpha_schedule_dir,
+     'sc_height_loss': alpha_schedule_hsc,
+     'led_height_loss': alpha_schedule_hled},
     metrics=[
         OneHotMeanIoU(3),
         directional_loss_metric,

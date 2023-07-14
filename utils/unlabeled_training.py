@@ -25,6 +25,11 @@ class UnsupModel(tf.keras.Model):
         x = data
 
         step = self.optimizer.iterations
+        # Update losses
+        for _, loss_fn in self.loss_functions.items():
+            if hasattr(loss_fn, 'update') and callable(loss_fn.update):
+                loss_fn.update(step)
+
         results = {}
         with tf.GradientTape() as tape:
             y_pred = self(x, training=True)
@@ -39,11 +44,6 @@ class UnsupModel(tf.keras.Model):
         trainable_vars = self.trainable_variables
         gradients = tape.gradient(loss_value, trainable_vars)
         self.optimizer.apply_gradients(zip(gradients, trainable_vars))
-
-        # Update losses
-        for _, loss_fn in self.loss_functions.items():
-            if hasattr(loss_fn, 'update') and callable(loss_fn.update):
-                loss_fn.update(step)
 
         results['total_loss'] = loss_value
 

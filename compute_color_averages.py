@@ -25,6 +25,7 @@ def compute_mean(image):
 dataset = read_dataset(DATA_ROOT, 'train')
 images = [x.astype(np.float32) / 255. for x, _ in dataset]
 
-means = np.stack(map(compute_mean, images), 0)
+means = np.stack(list(map(compute_mean, images)), 0)
+print(means)
 
 np.save('means_training_set.npy', means)

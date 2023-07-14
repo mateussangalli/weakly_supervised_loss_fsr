@@ -10,12 +10,12 @@ from tensorflow.keras.losses import CategoricalCrossentropy
 
 from utils.data_generation import get_tf_train_dataset
 from utils.data_loading import read_dataset
-from utils.directional_relations import PRPDirectionalPenalty
+from utils.directional_relations import PRPDirectionalPenalty, PRPDirectionalLogBarrier
 from utils.jaccard_loss import OneHotMeanIoU, jaccard_loss_mean_wrapper
 from utils.size_regularization import QuadraticPenaltyHeight
 from utils.unet import SemiSupUNetBuilder
 from utils.utils import crop_to_multiple_of
-from labeled_images import LABELED_IMAGES, LABELED_IMAGES_VAL
+from labeled_images import LABELED_IMAGES
 
 SC = 0
 LED = 2
@@ -64,6 +64,10 @@ parser.add_argument("--strel_size", type=int, default=20)
 parser.add_argument("--strel_iterations", type=int, default=1)
 parser.add_argument("--reduction", type=str, default="mean")
 parser.add_argument("--sym_bg", action="store_true")
+parser.add_argument("--log_barrier_dir", action="store_true")
+parser.add_argument("--t_coef", type=float, default=0.1)
+parser.add_argument("--t_max", type=float, default=10.)
+parser.add_argument("--t_min", type=float, default=1.)
 
 parser.add_argument("--hmax_sc", type=float, default=70.)
 parser.add_argument("--hmax_led", type=float, default=120.)
@@ -207,7 +211,6 @@ model = SemiSupUNetBuilder(
     normalization=args.normalization,
     normalize_all=False,
     batch_norm_momentum=args.bn_momentum,
-    alpha=alpha_schedule
 ).build()
 directional_loss = PRPDirectionalPenalty(args.strel_size,
                                          args.strel_iterations,
@@ -227,21 +230,34 @@ if args.labeled_loss_fn == 'iou':
 else:
     loss_labeled = CategoricalCrossentropy(from_logits=False)
 
-loss_unlab1 = PRPDirectionalPenalty(args.strel_size,
-                                    args.strel_iterations,
-                                    reduction_type=args.reduction,
-                                    sym_bg=args.sym_bg)
-loss_unlab2 = QuadraticPenaltyHeight(SC, args.hmax_sc)
-loss_unlab3 = QuadraticPenaltyHeight(LED, args.hmax_led)
+if args.log_barrier_dir:
+    def t_schedule(step): return tf.minimum(args.t_coef * step + args.t_min, args.t_max)
+    loss_dir = PRPDirectionalLogBarrier(
+        args.strel_size,
+        args.strel_iterations,
+        reduction_type=args.reduction,
+        sym_bg=args.sym_bg,
+        t_schedule=t_schedule,
+        t=args.t_min
+    )
+else:
+    loss_dir = PRPDirectionalPenalty(
+        args.strel_size,
+        args.strel_iterations,
+        reduction_type=args.reduction,
+        sym_bg=args.sym_bg
+    )
+loss_hsc = QuadraticPenaltyHeight(SC, args.hmax_sc)
+loss_hled = QuadraticPenaltyHeight(LED, args.hmax_led)
 
 
 model.compile(
     tf.keras.optimizers.experimental.Adam(
         args.starting_lr, weight_decay=args.weight_decay),
     loss_labeled,
-    [loss_unlab1,
-     loss_unlab2,
-     loss_unlab3],
+    {'directional_loss': loss_dir,
+     'sc_height_loss': loss_hsc,
+     'led_height_loss': loss_hled},
     metrics=[
         OneHotMeanIoU(3),
         directional_loss_metric,

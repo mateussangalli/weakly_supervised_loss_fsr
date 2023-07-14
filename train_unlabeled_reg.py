@@ -78,11 +78,6 @@ parser.add_argument("--verbose", type=int, default=2)
 
 args = parser.parse_args()
 
-if args.min_scale < 0.0:
-    scale_range = (1.0 / args.max_scale, args.max_scale)
-else:
-    scale_range = (args.min_scale, args.max_scale)
-
 if args.run_id == '':
     weight_str = f'{args.max_weight:.5f}'.replace('.', 'p')
     run_name = f'weight{weight_str}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'

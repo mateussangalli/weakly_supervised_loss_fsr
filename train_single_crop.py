@@ -8,18 +8,17 @@ import tensorflow as tf
 from tensorflow.keras.callbacks import CSVLogger, LearningRateScheduler
 from tensorflow.keras.losses import CategoricalCrossentropy
 
-from utils.data_generation import get_tf_train_dataset, get_single_crop_dataset
+from utils.data_generation import get_single_crop_dataset, get_tf_train_dataset
 from utils.data_loading import read_dataset
-from utils.directional_relations import PRPDirectionalPenalty
+from utils.directional_relations import PRPDirectionalPenalty, PRPDirectionalLogBarrier
 from utils.jaccard_loss import OneHotMeanIoU, jaccard_loss_mean_wrapper
 from utils.size_regularization import QuadraticPenaltyHeight
 from utils.unet import SemiSupUNetBuilder
 from utils.utils import crop_to_multiple_of
-from labeled_images import LABELED_IMAGES, LABELED_IMAGES_VAL
+from labeled_images import LABELED_IMAGES
 
 SC = 0
 LED = 2
-
 
 parser = argparse.ArgumentParser()
 # data dir arguments
@@ -28,9 +27,9 @@ parser.add_argument("--data_root", type=str, default="~/weak_supervision_data")
 parser.add_argument("--runs_dir", type=str, default="runs/no_pseudo_runs")
 
 # training arguments
-parser.add_argument("--crop_position", nargs='+', type=int, default=(100, 100))
-parser.add_argument("--batch_size_labeled", type=int, default=8)
-parser.add_argument("--batch_size_unlabeled", type=int, default=120)
+parser.add_argument("--batch_size_labeled", type=int, default=32)
+parser.add_argument("--batch_size_unlabeled", type=int, default=96)
+parser.add_argument("--crop_position", nargs='+', type=int, default=(100,100))
 parser.add_argument("--epochs", type=int, default=30)
 parser.add_argument("--starting_lr", type=float, default=1e-3)
 parser.add_argument("--warmup_epochs", type=int, default=20)
@@ -56,12 +55,19 @@ parser.add_argument("--color_transfer_probability", type=float, default=0.)
 parser.add_argument("--filters_start", type=int, default=8)
 parser.add_argument("--depth", type=int, default=4)
 parser.add_argument("--bn_momentum", type=float, default=0.9)
+parser.add_argument("--normalization", choices=['batch', 'layer', 'none'], default='batch')
 
 # unlabeled loss function arguments
 parser.add_argument("--max_weight", type=float, default=1.0)
 parser.add_argument("--increase_epochs", type=int, default=10)
 parser.add_argument("--strel_size", type=int, default=20)
 parser.add_argument("--strel_iterations", type=int, default=1)
+parser.add_argument("--reduction", type=str, default="mean")
+parser.add_argument("--sym_bg", action="store_true")
+parser.add_argument("--log_barrier_dir", action="store_true")
+parser.add_argument("--t_coef", type=float, default=0.1)
+parser.add_argument("--t_max", type=float, default=10.)
+parser.add_argument("--t_min", type=float, default=1.)
 
 parser.add_argument("--hmax_sc", type=float, default=70.)
 parser.add_argument("--hmax_led", type=float, default=120.)
@@ -71,11 +77,6 @@ parser.add_argument("--height_reg_weight", type=float, default=0.)
 parser.add_argument("--verbose", type=int, default=2)
 
 args = parser.parse_args()
-
-if args.min_scale < 0.0:
-    scale_range = (1.0 / args.max_scale, args.max_scale)
-else:
-    scale_range = (args.min_scale, args.max_scale)
 
 if args.run_id == '':
     weight_str = f'{args.max_weight:.5f}'.replace('.', 'p')
@@ -97,16 +98,13 @@ data_unlabeled = read_dataset(args.data_root, "train")
 # just to be sure...
 data_unlabeled = [(x, np.zeros_like(y)) for x, y in data_unlabeled]
 
-data_val = read_dataset(args.data_root, "val", LABELED_IMAGES_VAL)
+data_val = read_dataset(args.data_root, "val")
 data_val = [
     (crop_to_multiple_of(im, 2**args.depth),
      crop_to_multiple_of(gt, 2**args.depth)) for (im, gt) in data_val
 ]
 
 
-# NOTE: we want the same number of labeled and unlabeled data batches
-# NOTE: the number of batches is ceil(len(data) * crops_per_image / batch_size)
-# NOTE: Everything else is determined, so we must find crops_per_image_labeled
 samples_per_epoch_unlabeled = args.crops_per_image_unlabeled * len(data_unlabeled)
 steps_per_epoch_unlabeled = int(np.ceil(samples_per_epoch_unlabeled / args.batch_size_unlabeled))
 
@@ -150,8 +148,11 @@ def gen_val():
         yield image, label
 
 
-ds_val = tf.data.Dataset.from_generator(gen_val, output_types=(tf.float32, tf.int32))
-ds_val = ds_val.map(lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE)
+ds_val = tf.data.Dataset.from_generator(
+    gen_val, output_types=(tf.float32, tf.int32))
+ds_val = ds_val.map(
+    lambda im, gt: (im, tf.one_hot(gt, 3)), num_parallel_calls=tf.data.AUTOTUNE
+)
 ds_val = ds_val.batch(1)
 ds_val = ds_val.prefetch(tf.data.AUTOTUNE)
 ds_val = ds_val.repeat()
@@ -174,19 +175,20 @@ with open(params_path, 'w') as fp:
 
 
 # define regularization weight schedules
-increase_ratio = args.max_weight / float(args.increase_epochs)
+alpha_coef = args.max_weight / float(args.increase_epochs * steps_per_epoch)
+height_coef = args.height_reg_weight / float(args.increase_epochs * steps_per_epoch)
 
 
 def alpha_schedule1(t):
-    return tf.minimum(tf.cast(t, tf.float32) * increase_ratio, args.max_weight)
+    return tf.minimum(tf.cast(t, tf.float32) * alpha_coef, args.max_weight)
 
 
 def alpha_schedule2(t):
-    return tf.minimum(tf.cast(t, tf.float32) * increase_ratio, args.height_reg_weight)
+    return tf.minimum(tf.cast(t, tf.float32) * height_coef, args.height_reg_weight)
 
 
 def alpha_schedule3(t):
-    return tf.minimum(tf.cast(t, tf.float32) * increase_ratio, args.height_reg_weight)
+    return tf.minimum(tf.cast(t, tf.float32) * height_coef, args.height_reg_weight)
 
 
 alpha_schedule = [alpha_schedule1, alpha_schedule2, alpha_schedule3]
@@ -196,21 +198,19 @@ model = SemiSupUNetBuilder(
     (None, None, 3),
     args.filters_start,
     args.depth,
-    normalization="batch",
+    normalization=args.normalization,
     normalize_all=False,
     batch_norm_momentum=args.bn_momentum,
-    alpha=alpha_schedule
 ).build()
 directional_loss = PRPDirectionalPenalty(args.strel_size,
-                                         args.strel_iterations)
+                                         args.strel_iterations,
+                                         reduction_type=args.reduction,
+                                         sym_bg=args.sym_bg)
 height_penalty_sc = QuadraticPenaltyHeight(SC, args.hmax_sc)
 height_penalty_led = QuadraticPenaltyHeight(LED, args.hmax_led)
 
 
-def directional_loss_metric(
-    y, y_pred, **kwargs): return directional_loss(y_pred)
-
-
+def directional_loss_metric(y, y_pred, **kwargs): return directional_loss(y_pred)
 def height_sc_metric(y, y_pred, **kwargs): return height_penalty_sc(y_pred)
 def height_led_metric(y, y_pred, **kwargs): return height_penalty_led(y_pred)
 
@@ -220,19 +220,34 @@ if args.labeled_loss_fn == 'iou':
 else:
     loss_labeled = CategoricalCrossentropy(from_logits=False)
 
-loss_unlab1 = PRPDirectionalPenalty(args.strel_size,
-                                    args.strel_iterations)
-loss_unlab2 = QuadraticPenaltyHeight(SC, args.hmax_sc)
-loss_unlab3 = QuadraticPenaltyHeight(LED, args.hmax_led)
+if args.log_barrier_dir:
+    def t_schedule(step): return tf.minimum(args.t_coef * step + args.t_min, args.t_max)
+    loss_dir = PRPDirectionalLogBarrier(
+        args.strel_size,
+        args.strel_iterations,
+        reduction_type=args.reduction,
+        sym_bg=args.sym_bg,
+        t_schedule=t_schedule,
+        t=args.t_min
+    )
+else:
+    loss_dir = PRPDirectionalPenalty(
+        args.strel_size,
+        args.strel_iterations,
+        reduction_type=args.reduction,
+        sym_bg=args.sym_bg
+    )
+loss_hsc = QuadraticPenaltyHeight(SC, args.hmax_sc)
+loss_hled = QuadraticPenaltyHeight(LED, args.hmax_led)
 
 
 model.compile(
     tf.keras.optimizers.experimental.Adam(
         args.starting_lr, weight_decay=args.weight_decay),
     loss_labeled,
-    [loss_unlab1,
-     loss_unlab2,
-     loss_unlab3],
+    {'directional_loss': loss_dir,
+     'sc_height_loss': loss_hsc,
+     'led_height_loss': loss_hled},
     metrics=[
         OneHotMeanIoU(3),
         directional_loss_metric,

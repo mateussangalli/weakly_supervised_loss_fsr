@@ -29,7 +29,7 @@ parser.add_argument("--runs_dir", type=str, default="runs/no_pseudo_runs")
 # training arguments
 parser.add_argument("--batch_size_labeled", type=int, default=32)
 parser.add_argument("--batch_size_unlabeled", type=int, default=96)
-parser.add_argument("--crop_position", nargs='+', type=int, default=(100,100))
+parser.add_argument("--crop_position", nargs='+', type=int, default=(100, 100))
 parser.add_argument("--epochs", type=int, default=30)
 parser.add_argument("--starting_lr", type=float, default=1e-3)
 parser.add_argument("--warmup_epochs", type=int, default=20)

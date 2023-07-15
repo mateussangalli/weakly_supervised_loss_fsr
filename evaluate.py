@@ -20,7 +20,7 @@ args = parser.parse_args()
 
 run_dir = os.path.join(args.runs_dir, args.run_id)
 
-prp_penalty = PRPDirectionalPenalty(20, 1)
+prp_penalty = PRPDirectionalPenalty(20, 1, sym_bg=True)
 
 # load data
 filenames = os.listdir(os.path.join(args.data_root, args.subset, "images"))

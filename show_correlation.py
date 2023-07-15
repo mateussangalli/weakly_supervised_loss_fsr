@@ -7,3 +7,8 @@ reg_values = df['dir_penalty']
 iou_values = df['mean_iou_pred']
 
 plt.scatter(reg_values, iou_values)
+plt.xlabel('Regularization Value')
+plt.ylabel('IOU')
+plt.grid()
+# plt.show()
+plt.savefig('../regularization_iou.pdf')

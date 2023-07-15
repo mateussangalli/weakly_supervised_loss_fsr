@@ -13,18 +13,20 @@ preds = [
     read_label('testing/image_name', one_hot=True),
 ]
 
+
 def label2grey(label):
     label = np.argmax(label, -1)
-    colors = np.array([.5, 0, 1.], np.float32) 
+    colors = np.array([.5, 0, 1.], np.float32)
     colors = np.stack([colors]*3, 1)
     return colors[label]
+
 
 colors = [(0., 0., 0., 0.), (0.9, 0.4, 0., 1.)]
 color_heatmap = np.array((0.9, 0.4, 0.), np.float32)[np.newaxis, np.newaxis, :]
 cmap = mcolors.LinearSegmentedColormap.from_list('custom_colormap', colors)
- 
-fn1 = PRPDirectionalPenalty(20, 1, return_map=True, dilation_type='maxplus')
-fn2 = PRPDirectionalPenalty(20, 1, return_map=True, dilation_type='flat_line')
+
+fn1 = PRPDirectionalPenalty(20, 1, dilation_type='maxplus', reduction_type='none', sym_bg=True)
+fn2 = PRPDirectionalPenalty(20, 1, dilation_type='flat_line', reduction_type='none', sym_bg=True)
 
 for i, pred in enumerate(preds):
     penalty = np.array(fn1(pred[np.newaxis, ...]))[0, ...]
@@ -36,6 +38,8 @@ for i, pred in enumerate(preds):
 
     # penalty = penalty[..., np.newaxis]
     im_out = pred * (1. - penalty * .7) + color_heatmap * penalty * .7
+    im_out = np.maximum(np.minimum(im_out, 1.), 0.)
+    im_out = (255. * im_out).astype(np.uint8)
     imsave(f'../pred_heatmap_{i}.png', im_out)
 
 for i, pred in enumerate(preds):
@@ -48,5 +52,7 @@ for i, pred in enumerate(preds):
 
     # penalty = penalty[..., np.newaxis]
     im_out = pred * (1. - penalty * .7) + color_heatmap * penalty * .7
+    im_out = np.maximum(np.minimum(im_out, 1.), 0.)
+    im_out = (255. * im_out).astype(np.uint8)
     imsave(f'../pred_heatmap_{i}_flat.png', im_out)
 plt.show()

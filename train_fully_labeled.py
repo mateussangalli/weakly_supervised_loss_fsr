@@ -98,7 +98,7 @@ params = {
     "batch_size": args.batch_size
 }
 ds_train: tf.data.Dataset = get_tf_train_dataset(data_train, params)
-ds_train = ds_train.prefetch(tf.data.AUTOTUNE)
+ds_train = ds_train.repeat().prefetch(tf.data.AUTOTUNE)
 
 
 def gen_val():

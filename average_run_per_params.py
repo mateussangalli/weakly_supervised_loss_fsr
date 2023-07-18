@@ -23,9 +23,12 @@ for run_id in os.listdir(args.runs_dir):
     with open(params_path, 'r') as fp:
         params = json.load(fp)
 
-    weight = params['max_weight']
-    height_weight = params['height_reg_weight']
-    key = f'({weight:.5f},{height_weight:.5f})'
+    try:
+        weight = params['max_weight']
+        height_weight = params['height_reg_weight']
+        key = f'({weight:.5f},{height_weight:.5f})'
+    except KeyError as e:
+        key = 'fully_labeled'
     if key not in results:
         results[key] = {}
         for column in df:

@@ -44,12 +44,32 @@ def fuzzy_product_dilation(image, kernel, kernel_size):
     return tf.reduce_max(prod, 3)
 
 
+def fuzzy_minimum_dilation(image, kernel, kernel_size):
+    """
+    Args:
+        image: 4-D tensor [batches, height, width, depth]
+        kernel: 3-D tensor [kernel_height, kernel_width, depth]
+    """
+    shape = tf.shape(image)
+    patches = tf.image.extract_patches(
+        image,
+        sizes=[1, kernel_size[0], kernel_size[1], 1],
+        strides=[1, 1, 1, 1],
+        rates=[1, 1, 1, 1],
+        padding='SAME',
+    )
+    patches = tf.reshape(patches, [shape[0], shape[1], shape[2], -1, shape[3]])
+    kernel = tf.reshape(kernel, [1, 1, 1, kernel_size[0] * kernel_size[1], -1])
+    prod = tf.minimum(patches, kernel)
+    return tf.reduce_max(prod, 3)
+
+
 class DirectionalRelation:
     def __init__(self, distance, iterations, direction, dilation_type='product'):
         self.distance = distance
         self.iterations = iterations
         self.kernel_size = (2 * distance + 1, 2 * distance + 1)
-        allowed_dilation_types = ('product', 'maxplus')
+        allowed_dilation_types = ('product', 'maxplus', 'minimum')
         if dilation_type not in allowed_dilation_types:
             raise ValueError(f"dilation_type must be one of: {allowed_dilation_types}")
         self.dilation_type = dilation_type
@@ -60,7 +80,9 @@ class DirectionalRelation:
     def __call__(self, inputs):
         out = inputs
         for i in range(self.iterations):
-            if self.dilation_type == 'product':
+            if self.dilation_type == 'minimum':
+                tmp = fuzzy_minimum_dilation(out, self.kernel, self.kernel_size)
+            elif self.dilation_type == 'product':
                 tmp = fuzzy_product_dilation(out, self.kernel, self.kernel_size)
             else:
                 tmp = tf.nn.dilation2d(out,

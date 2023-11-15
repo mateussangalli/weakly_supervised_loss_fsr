@@ -93,7 +93,7 @@ if args.num_images_labeled <= 3:
     data_train = read_dataset(args.data_root, "train", LABELED_IMAGES[:args.num_images_labeled])
 else:
     labeled_images = LABELED_IMAGES.copy()
-    filenames = os.listdir(os.path.join(args.data_root, "images"))
+    filenames = os.listdir(os.path.join(args.data_root, "train", "images"))
     for fname in labeled_images:
         filenames.remove(fname)
     random.seed(SEED_LABELED)

@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from datetime import datetime
+import random
 
 import numpy as np
 import tensorflow as tf
@@ -16,6 +17,8 @@ from utils.size_regularization import QuadraticPenaltyHeight
 from utils.unet import SemiSupUNetBuilder
 from utils.utils import crop_to_multiple_of
 from labeled_images import LABELED_IMAGES
+
+SEED_LABELED = 42
 
 SC = 0
 LED = 2
@@ -86,7 +89,21 @@ else:
 run_dir = os.path.join(args.runs_dir, run_name)
 
 # load data
-data_train = read_dataset(args.data_root, "train", LABELED_IMAGES[:args.num_images_labeled])
+if args.num_images_labeled <= 3:
+    data_train = read_dataset(args.data_root, "train", LABELED_IMAGES[:args.num_images_labeled])
+else:
+    labeled_images = LABELED_IMAGES.copy()
+    filenames = os.listdir(os.path.join(args.data_root, "images"))
+    for fname in labeled_images:
+        filenames.remove(fname)
+    random.seed(SEED_LABELED)
+    labeled_images = labeled_images + random.sample(filenames, args.num_images_labeled - 3)
+    data_train = read_dataset(args.data_root, "train", labeled_images)
+
+    # reset seed with current time
+    random.seed()
+
+    
 data_unlabeled = read_dataset(args.data_root, "train")
 # just to be sure...
 data_unlabeled = [(x, np.zeros_like(y)) for x, y in data_unlabeled]
